@@ -23,6 +23,19 @@ async function startServer(): Promise<void> {
     console.log(`[Server] Health check available at: http://localhost:${env.PORT}/api/v1/health`);
     console.log(`[Server] Configured CORS origin: ${env.CORS_ORIGIN}`);
   });
+
+  server.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(
+        `\n[Server Error] Port ${env.PORT} is already in use by another process.\n` +
+        `If another dev server is running, terminate it before starting a new one.\n`
+      );
+      process.exit(1);
+    } else {
+      console.error(`[Server Error]`, err);
+      process.exit(1);
+    }
+  });
 }
 
 // Graceful shutdown
