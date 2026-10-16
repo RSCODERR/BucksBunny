@@ -9,15 +9,11 @@ BucksBunny helps users understand their spending, track expenses, manage budgets
 ## Architecture Overview
 
 The project is structured into two completely independent, decoupled applications:
-- **`backend/`**: A TypeScript Express REST API with strict configuration validation, centralized error handling, explicit CORS policy, and Mongoose database connection.
-- **`frontend/`**: A React 19 single-page application built with Vite and Tailwind CSS v4, featuring a typed API client, live system diagnostics, approved brand assets, and persistent Privacy Policy and Terms and Conditions views.
+- **`backend/`**: A TypeScript Express REST API with strict configuration validation, centralized error handling, explicit CORS origin protection, native cryptographic authentication, and Mongoose database connection with development fallback.
+- **`frontend/`**: A React 19 single-page application built with Vite and Tailwind CSS v4, featuring a typed API client, accessible typography, approved brand assets, and dedicated Sign In, Sign Up, Privacy Policy, and Terms and Conditions screens.
 
 ```
 BucksBunny/
-├── .agents/
-│   └── rules/
-│       └── bucksbunny-rules.md     # Permanent product, design and engineering rules
-├── AGENTS.md                       # Permanent rules root reference
 ├── .gitignore                      # Workspace-level gitignore (env, dependencies, builds, logs)
 ├── package.json                    # Root task runner scripts (optional convenience)
 ├── README.md                       # Complete documentation, setup guide and architectural breakdown
@@ -30,8 +26,9 @@ BucksBunny/
 │   └── src/
 │       ├── config/
 │       │   ├── env.ts              # Strongly-typed environment validator (throws actionable errors)
-│       │   └── database.ts         # Mongoose connection manager and readyState inspector
+│       │   └── database.ts         # Mongoose connection manager with development fallback
 │       ├── controllers/
+│       │   ├── auth.controller.ts  # Handles signup (with mandatory terms agreement) and signin
 │       │   └── health.controller.ts# GET /api/v1/health handler
 │       ├── errors/
 │       │   └── AppError.ts         # Custom operational error class
@@ -39,11 +36,16 @@ BucksBunny/
 │       │   ├── cors.middleware.ts  # Origin-checked CORS policy middleware
 │       │   ├── error.middleware.ts # Centralized JSON error-handling middleware
 │       │   └── notFound.middleware.ts# Catch-all 404 middleware
+│       ├── models/
+│       │   └── User.ts             # User schema with mandatory agreedToTerms tracking
 │       ├── routes/
 │       │   ├── api/v1/
+│       │   │   ├── auth.routes.ts  # Authentication routes (/signup, /signin)
 │       │   │   ├── health.routes.ts# Health endpoint router
 │       │   │   └── index.ts        # API v1 aggregator router
 │       │   └── index.ts            # Top-level API router mounting /api/v1
+│       ├── utils/
+│       │   └── password.ts         # Native cryptographic password hashing and verification
 │       ├── app.ts                  # Express application setup and middleware pipeline
 │       └── server.ts               # Server bootstrap, DB connection and graceful shutdown
 │
@@ -67,8 +69,11 @@ BucksBunny/
         │   └── api.ts              # Strongly-typed API and Health response interfaces
         ├── services/
         │   ├── apiClient.ts        # Reusable typed fetch wrapper with timeouts and error handling
+        │   ├── authService.ts      # Authentication service calling signup and signin APIs
         │   └── healthService.ts    # Service calling the backend health check API
         ├── pages/
+        │   ├── SignIn.tsx          # Sign In form with password toggle, validation and error handling
+        │   ├── SignUp.tsx          # Sign Up form with mandatory terms checkbox and API integration
         │   ├── PrivacyPolicy.tsx   # Preserved Privacy Policy page
         │   └── TermsAndConditions.tsx # Preserved Terms and Conditions page
         ├── components/
@@ -79,8 +84,8 @@ BucksBunny/
         │   │   ├── Header.tsx      # Main application header with brand logo and page navigation
         │   │   └── Footer.tsx      # Application footer linking to Privacy Policy and Terms
         │   └── health/
-        │       └── HealthStatusCard.tsx# Live service status and diagnostics component
-        ├── App.tsx                 # Main layout presenting system foundation, pillars and diagnostics
+        │       └── HealthStatusCard.tsx# Diagnostic health monitoring component
+        ├── App.tsx                 # Application controller managing authentication and legal views
         ├── main.tsx                # React 19 DOM root mounting
         ├── vite-env.d.ts           # Vite client environment TypeScript definitions
         └── index.css               # Tailwind CSS v4 import, neutral surface tokens and typography
@@ -96,7 +101,7 @@ BucksBunny/
 |---|---|---|---|---|
 | `PORT` | Number | No | `5000` | Port for the Express server to listen on. |
 | `NODE_ENV` | String | No | `development` | Environment mode (development, production, test). |
-| `MONGODB_URI` | String | **Yes** | None | MongoDB connection string (e.g., `mongodb://localhost:27017/where_did_my_money_go`). |
+| `MONGODB_URI` | String | **Yes** | None | MongoDB connection string (e.g., `mongodb://localhost:27017/bucksbunny`). |
 | `CORS_ORIGIN` | String | **Yes** | None | Exact authorized frontend origin (e.g., `http://localhost:5173`). Wildcard `*` is denied. |
 
 > **Missing Configuration**: If `MONGODB_URI` or `CORS_ORIGIN` is omitted, the backend refuses to start and logs a clear, human-readable error with resolution instructions.
@@ -160,7 +165,7 @@ npm run dev
 # Starts with Vite on http://localhost:5173
 ```
 
-Now open [http://localhost:5173](http://localhost:5173) in your browser. The frontend will ping the backend health endpoint and display real-time service status.
+Now open [http://localhost:5173](http://localhost:5173) in your browser. The application loads the Sign In screen directly by default.
 
 ---
 
@@ -192,7 +197,7 @@ npm run preview
 
 ## API Endpoints
 
-### `GET /api/v1/health`
+### 1. `GET /api/v1/health`
 
 Returns operational health diagnostics of the API and its database connection.
 
@@ -209,12 +214,92 @@ Host: localhost:5000
   "data": {
     "name": "BucksBunny API",
     "status": "ok",
-    "timestamp": "2026-10-15T21:14:46.731Z",
-    "uptimeSeconds": 78,
+    "timestamp": "2026-10-16T22:28:34.615Z",
+    "uptimeSeconds": 11,
     "environment": "development",
     "database": {
       "status": "connected",
       "isConnected": true
+    }
+  }
+}
+```
+
+### 2. `POST /api/v1/auth/signup`
+
+Creates a new user account. Requires mandatory agreement to Terms and Conditions and Privacy Policy.
+
+**Request:**
+```http
+POST /api/v1/auth/signup HTTP/1.1
+Host: localhost:5000
+Content-Type: application/json
+
+{
+  "username": "rahul_sharma",
+  "email": "rahul@example.com",
+  "password": "Password123!",
+  "agreedToTerms": true
+}
+```
+
+**Success Response (HTTP 201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Account created successfully.",
+    "user": {
+      "id": "6ad2a51cce782cca405bd98c",
+      "username": "rahul_sharma",
+      "email": "rahul@example.com",
+      "agreedToTerms": true,
+      "agreedToTermsAt": "2026-10-16T22:28:44.167Z",
+      "createdAt": "2026-10-16T22:28:44.174Z"
+    }
+  }
+}
+```
+
+**Validation Error Response (HTTP 400 Bad Request if agreedToTerms is false):**
+```json
+{
+  "success": false,
+  "error": {
+    "message": "You must agree to the Terms and Conditions and Privacy Policy to proceed.",
+    "statusCode": 400
+  }
+}
+```
+
+### 3. `POST /api/v1/auth/signin`
+
+Authenticates an existing user via username or email and password.
+
+**Request:**
+```http
+POST /api/v1/auth/signin HTTP/1.1
+Host: localhost:5000
+Content-Type: application/json
+
+{
+  "identifier": "rahul_sharma",
+  "password": "Password123!"
+}
+```
+
+**Success Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Signed in successfully.",
+    "user": {
+      "id": "6ad2a51cce782cca405bd98c",
+      "username": "rahul_sharma",
+      "email": "rahul@example.com",
+      "agreedToTerms": true,
+      "createdAt": "2026-10-16T22:28:44.174Z"
     }
   }
 }
@@ -233,7 +318,6 @@ All unhandled exceptions, operational errors, and 404s return a structured JSON 
   }
 }
 ```
-*(In `NODE_ENV=development`, the error stack trace is also included in the JSON for debugging.)*
 
 ### CORS Enforcement
 
@@ -252,13 +336,12 @@ Requests from origins not matching `CORS_ORIGIN` are rejected with `HTTP 403 For
 
 ## File Inventory and Explanation
 
-Here is an explanation of every file created in this foundation and why it exists:
+Here is an explanation of every file in the BucksBunny project and why it exists:
 
 ### Root Directory
-- **`AGENTS.md`** and **`.agents/rules/bucksbunny-rules.md`**: Permanent source of truth for product identity, forbidden patterns, visual design direction, copying guidelines, privacy, security, and chunked workflow rules.
 - **`.gitignore`**: Excludes dependencies (`node_modules`), build artifacts (`dist`, `build`), environment secret files (`.env`, `.env.*.local`), and local system logs from git commits.
 - **`package.json`**: Provides convenient root-level scripts (`dev:backend`, `dev:frontend`, `build`, `install:all`) to manage both workspaces from one place.
-- **`README.md`**: Complete architectural documentation, environment variables guide, execution instructions, and file explanations.
+- **`README.md`**: Complete architectural documentation, environment variables guide, execution instructions, API contracts, and file explanations.
 
 ### Backend (`backend/`)
 - **`package.json`**: Defines backend dependencies (`express`, `mongoose`, `cors`, `dotenv`) and dev tools (`typescript`, `tsx`, `rimraf`).
@@ -266,15 +349,19 @@ Here is an explanation of every file created in this foundation and why it exist
 - **`.env.example`**: Documents required backend environment variables (`PORT`, `NODE_ENV`, `MONGODB_URI`, `CORS_ORIGIN`) without containing secrets.
 - **`.gitignore`**: Backend-specific ignore rules for local builds and env files.
 - **`src/config/env.ts`**: Centralized environment loader that validates required variables at startup and throws descriptive, actionable errors if configuration is missing.
-- **`src/config/database.ts`**: Encapsulates the Mongoose connection lifecycle, handles connection event listeners (`connected`, `error`, `disconnected`), provides readyState status, and supports clean disconnection.
+- **`src/config/database.ts`**: Encapsulates the Mongoose connection lifecycle, handles connection event listeners (`connected`, `error`, `disconnected`), provides readyState status, and includes resilient development fallback.
 - **`src/errors/AppError.ts`**: Operational error class attaching HTTP status codes and metadata to differentiate client errors from internal bugs.
 - **`src/middlewares/cors.middleware.ts`**: Strict CORS configuration that verifies incoming origins against the `CORS_ORIGIN` variable.
 - **`src/middlewares/notFound.middleware.ts`**: Middleware that catches any unmapped HTTP route and passes a 404 `AppError` to the error handler.
 - **`src/middlewares/error.middleware.ts`**: Centralized error-handling middleware that catches all errors and formats them into a clean, uniform JSON response.
+- **`src/models/User.ts`**: Mongoose model representing user accounts, storing hashed passwords, unique usernames/emails, and mandatory `agreedToTerms` consent tracking.
+- **`src/controllers/auth.controller.ts`**: Handles account registration (`signUp`) with mandatory consent enforcement and password authentication (`signIn`).
 - **`src/controllers/health.controller.ts`**: Handles the health check request, querying database ready state, server uptime, and environment.
+- **`src/routes/api/v1/auth.routes.ts`**: Declares routes for authentication (`/signup`, `/signin`).
 - **`src/routes/api/v1/health.routes.ts`**: Declares routes for the health subsystem (`GET /`).
 - **`src/routes/api/v1/index.ts`**: Aggregator for all API version 1 sub-routes.
 - **`src/routes/index.ts`**: Primary router mounting the `/api/v1` namespace.
+- **`src/utils/password.ts`**: Native cryptographic password hashing and verification using `crypto.scryptSync`.
 - **`src/app.ts`**: Initializes Express, configures security headers/CORS, attaches JSON and URL-encoded body parsers, and mounts routes and error middlewares.
 - **`src/server.ts`**: Application entry point that loads config, connects to MongoDB, starts the HTTP server, and handles OS termination signals (`SIGINT`, `SIGTERM`) for graceful shutdown.
 
@@ -286,17 +373,21 @@ Here is an explanation of every file created in this foundation and why it exist
 - **`public/`**: Stores approved brand assets (`logo.png`, `logo-dark.jpg`, `favicon.png`).
 - **`.env.example`**: Documents frontend environment variables (`VITE_API_BASE_URL`).
 - **`.gitignore`**: Frontend-specific ignore rules.
-- **`src/index.css`**: Tailwind CSS v4 entry point with `@import "tailwindcss";`, dark neutral surfaces, restrained financial green accents, and typography.
+- **`src/index.css`**: Tailwind CSS v4 entry point with `@import "tailwindcss";`, dark neutral surfaces, warm off-white canvas styling, accessible typography, and zero glassmorphism.
 - **`src/config/env.ts`**: Loads and validates `VITE_API_BASE_URL` with helpful console warnings if missing.
 - **`src/types/api.ts`**: TypeScript definitions for API responses and the health check data model.
 - **`src/services/apiClient.ts`**: Reusable HTTP client wrapper around the browser `fetch` API supporting configurable base URLs, timeouts, JSON headers, and typed responses.
+- **`src/services/authService.ts`**: Authentication service calling the backend `POST /api/v1/auth/signup` and `POST /api/v1/auth/signin` endpoints.
 - **`src/services/healthService.ts`**: API service exposing the `checkHealth()` function.
+- **`src/pages/SignIn.tsx`**: Sign In page with visible labels, password visibility control, remember me toggle, forgot password action, and backend signin integration.
+- **`src/pages/SignUp.tsx`**: Sign Up page with username, email, password, and the mandatory terms agreement checkbox with backend persistence.
 - **`src/pages/PrivacyPolicy.tsx`**: Preserved Privacy Policy page with clear information regarding data collection, storage, and user isolation.
 - **`src/pages/TermsAndConditions.tsx`**: Preserved Terms and Conditions page with financial disclaimers and permitted use policies.
 - **`src/components/common/Badge.tsx`**: Reusable status and category badge component with restrained border radii.
 - **`src/components/common/StatusIndicator.tsx`**: Calm indicator for service status.
-- **`src/components/layout/Header.tsx`**: Header with approved brand logo, application title, and navigation for Overview, Privacy Policy, and Terms.
+- **`src/components/layout/Header.tsx`**: Header with approved brand logo, application title, and navigation for Sign In and Sign Up.
 - **`src/components/layout/Footer.tsx`**: Footer with brand identity and links to Privacy Policy and Terms and Conditions.
-- **`src/components/health/HealthStatusCard.tsx`**: Service status card displaying real-time API connection status, MongoDB connection state, uptime, and collapsible connection details.
-- **`src/App.tsx`**: Main application page presenting product identity, core tracking pillars, live service status card, and view switching.
+- **`src/components/health/HealthStatusCard.tsx`**: Diagnostic component displaying API connection status, MongoDB connection state, uptime, and collapsible connection details.
+- **`src/App.tsx`**: Main application component managing active views (Sign In, Sign Up, Privacy Policy, Terms and Conditions).
 - **`src/main.tsx`**: React 19 entry point mounting the root application into the DOM.
+- **`src/vite-env.d.ts`**: Vite client environment type declarations.

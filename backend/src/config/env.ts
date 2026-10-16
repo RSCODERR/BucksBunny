@@ -28,7 +28,7 @@ function validateEnv(): EnvConfig {
     const errorDetails = missingVars.map((varName) => {
       switch (varName) {
         case 'MONGODB_URI':
-          return '  - MONGODB_URI: MongoDB connection string (e.g. mongodb://localhost:27017/where_did_my_money_go)';
+          return '  - MONGODB_URI: MongoDB connection string (e.g. mongodb://localhost:27017/bucksbunny)';
         case 'CORS_ORIGIN':
           return '  - CORS_ORIGIN: Allowed frontend origin URL (e.g. http://localhost:5173)';
         default:

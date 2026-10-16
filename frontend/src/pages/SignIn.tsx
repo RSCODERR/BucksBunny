@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { authService } from '../services/authService';
 
 interface SignInProps {
   onNavigateToSignUp?: () => void;
@@ -54,7 +55,7 @@ export const SignIn: React.FC<SignInProps> = ({
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setTouched({ identifier: true, password: true });
     setAuthError(null);
@@ -65,37 +66,41 @@ export const SignIn: React.FC<SignInProps> = ({
 
     setIsLoading(true);
 
-    // Simulate authentication processing for interaction state fidelity
-    setTimeout(() => {
-      setIsLoading(false);
+    try {
+      await authService.signIn({ identifier, password });
       setIsSuccess(true);
       if (onSuccess) {
         setTimeout(onSuccess, 1000);
       }
-    }, 1200);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Invalid credentials. Please try again.';
+      setAuthError(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] w-full flex items-center justify-center py-10 px-4 sm:px-6 bg-[#F7F8F5]">
-      <div className="w-full max-w-[420px] bg-white border border-[#E1E6E1] rounded-lg shadow-sm p-6 sm:p-8 space-y-6">
+    <div className="min-h-[calc(100vh-72px)] w-full flex items-center justify-center py-12 px-4 sm:px-6 bg-[#F7F8F5]">
+      <div className="w-full max-w-[440px] bg-white border border-[#E1E6E1] rounded-lg shadow-sm p-7 sm:p-9 space-y-7">
         {/* Top Header and Logo */}
-        <div className="space-y-3">
-          <div className="flex items-center gap-2.5">
+        <div className="space-y-3.5">
+          <div className="flex items-center gap-3">
             <img
               src="/logo.png"
               alt="BucksBunny"
-              className="h-8 w-8 object-contain"
+              className="h-9 w-9 object-contain"
             />
-            <span className="font-semibold text-lg text-[#17211D] tracking-tight">
+            <span className="font-bold text-xl text-[#17211D] tracking-tight">
               BucksBunny
             </span>
           </div>
 
-          <div className="space-y-1">
-            <h1 className="text-xl sm:text-2xl font-bold text-[#17211D] tracking-tight">
+          <div className="space-y-1.5">
+            <h1 className="text-2xl sm:text-[28px] font-bold text-[#17211D] tracking-tight">
               Welcome back.
             </h1>
-            <p className="text-sm text-[#66716B]">
+            <p className="text-base text-[#66716B]">
               Sign in to pick up where you left off.
             </p>
           </div>
@@ -105,11 +110,11 @@ export const SignIn: React.FC<SignInProps> = ({
         {authError && (
           <div
             role="alert"
-            className="p-3 bg-[#FDF2F2] border border-[#F3B7B7] rounded-[4px] text-xs text-[#C24141] flex items-start gap-2.5"
+            className="p-3.5 bg-[#FDF2F2] border border-[#F3B7B7] rounded-[4px] text-sm text-[#C24141] flex items-start gap-2.5"
           >
-            <AlertCircle className="w-4 h-4 text-[#C24141] shrink-0 mt-0.5" />
+            <AlertCircle className="w-4.5 h-4.5 text-[#C24141] shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="font-medium">Authentication failed</p>
+              <p className="font-semibold">Authentication failed</p>
               <p className="mt-0.5 text-[#66716B]">{authError}</p>
             </div>
           </div>
@@ -119,23 +124,23 @@ export const SignIn: React.FC<SignInProps> = ({
         {isSuccess && (
           <div
             role="status"
-            className="p-3 bg-[#E8F5EC] border border-[#A6DEC0] rounded-[4px] text-xs text-[#064E3B] flex items-start gap-2.5"
+            className="p-3.5 bg-[#E8F5EC] border border-[#A6DEC0] rounded-[4px] text-sm text-[#064E3B] flex items-start gap-2.5"
           >
-            <CheckCircle2 className="w-4 h-4 text-[#16A765] shrink-0 mt-0.5" />
+            <CheckCircle2 className="w-4.5 h-4.5 text-[#16A765] shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="font-medium">Signed in successfully.</p>
+              <p className="font-semibold">Signed in successfully.</p>
               <p className="mt-0.5 text-[#66716B]">Redirecting to your account...</p>
             </div>
           </div>
         )}
 
         {/* Sign In Form */}
-        <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-5">
           {/* Field: Email or Username */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <label
               htmlFor="identifier"
-              className="block text-xs font-medium text-[#17211D]"
+              className="block text-sm font-semibold text-[#17211D]"
             >
               Email or username
             </label>
@@ -156,24 +161,24 @@ export const SignIn: React.FC<SignInProps> = ({
               placeholder="name@example.com or username"
               aria-invalid={touched.identifier && !!errors.identifier}
               aria-describedby={errors.identifier ? 'identifier-error' : undefined}
-              className={`w-full h-10 px-3 text-sm bg-white border rounded-[4px] text-[#17211D] placeholder:text-[#9BA39E] transition-colors focus:outline-none disabled:bg-[#F7F8F5] disabled:cursor-not-allowed ${
+              className={`w-full h-11 px-3.5 text-base bg-white border rounded-[4px] text-[#17211D] placeholder:text-[#9BA39E] transition-colors focus:outline-none disabled:bg-[#F7F8F5] disabled:cursor-not-allowed ${
                 touched.identifier && errors.identifier
                   ? 'border-[#C24141] focus:border-[#C24141] focus:ring-1 focus:ring-[#C24141]'
                   : 'border-[#E1E6E1] focus:border-[#16A765] focus:ring-1 focus:ring-[#16A765]'
               }`}
             />
             {touched.identifier && errors.identifier && (
-              <p id="identifier-error" className="text-xs text-[#C24141]">
+              <p id="identifier-error" className="text-sm text-[#C24141]">
                 {errors.identifier}
               </p>
             )}
           </div>
 
           {/* Field: Password */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <label
               htmlFor="password"
-              className="block text-xs font-medium text-[#17211D]"
+              className="block text-sm font-semibold text-[#17211D]"
             >
               Password
             </label>
@@ -195,7 +200,7 @@ export const SignIn: React.FC<SignInProps> = ({
                 placeholder="Enter your password"
                 aria-invalid={touched.password && !!errors.password}
                 aria-describedby={errors.password ? 'password-error' : undefined}
-                className={`w-full h-10 pl-3 pr-10 text-sm bg-white border rounded-[4px] text-[#17211D] placeholder:text-[#9BA39E] transition-colors focus:outline-none disabled:bg-[#F7F8F5] disabled:cursor-not-allowed ${
+                className={`w-full h-11 pl-3.5 pr-11 text-base bg-white border rounded-[4px] text-[#17211D] placeholder:text-[#9BA39E] transition-colors focus:outline-none disabled:bg-[#F7F8F5] disabled:cursor-not-allowed ${
                   touched.password && errors.password
                     ? 'border-[#C24141] focus:border-[#C24141] focus:ring-1 focus:ring-[#C24141]'
                     : 'border-[#E1E6E1] focus:border-[#16A765] focus:ring-1 focus:ring-[#16A765]'
@@ -206,17 +211,17 @@ export const SignIn: React.FC<SignInProps> = ({
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={isLoading || isSuccess}
                 aria-label={showPassword ? 'Hide password' : 'Show password'}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#66716B] hover:text-[#17211D] focus:outline-none focus:text-[#17211D] transition-colors disabled:opacity-50"
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#66716B] hover:text-[#17211D] focus:outline-none focus:text-[#17211D] transition-colors disabled:opacity-50 cursor-pointer"
               >
                 {showPassword ? (
-                  <EyeOff className="w-4 h-4" />
+                  <EyeOff className="w-5 h-5" />
                 ) : (
-                  <Eye className="w-4 h-4" />
+                  <Eye className="w-5 h-5" />
                 )}
               </button>
             </div>
             {touched.password && errors.password && (
-              <p id="password-error" className="text-xs text-[#C24141]">
+              <p id="password-error" className="text-sm text-[#C24141]">
                 {errors.password}
               </p>
             )}
@@ -224,21 +229,21 @@ export const SignIn: React.FC<SignInProps> = ({
 
           {/* Compact Row: Remember Me & Forgot Password */}
           <div className="flex items-center justify-between pt-1">
-            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+            <label className="inline-flex items-center gap-2.5 cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={rememberMe}
                 disabled={isLoading || isSuccess}
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="h-4 w-4 rounded-[3px] border-[#E1E6E1] text-[#064E3B] focus:ring-[#16A765] accent-[#064E3B] cursor-pointer"
+                className="h-4.5 w-4.5 rounded-[3px] border-[#E1E6E1] text-[#064E3B] focus:ring-[#16A765] accent-[#064E3B] cursor-pointer"
               />
-              <span className="text-xs text-[#66716B]">Remember me</span>
+              <span className="text-sm text-[#66716B]">Remember me</span>
             </label>
 
             <button
               type="button"
               onClick={onNavigateToForgotPassword}
-              className="text-xs font-medium text-[#064E3B] hover:text-[#043629] hover:underline transition-colors focus:outline-none"
+              className="text-sm font-medium text-[#064E3B] hover:text-[#043629] hover:underline transition-colors focus:outline-none cursor-pointer"
             >
               Forgot password?
             </button>
@@ -249,11 +254,11 @@ export const SignIn: React.FC<SignInProps> = ({
             <button
               type="submit"
               disabled={isLoading || isSuccess}
-              className="w-full h-10 px-4 bg-[#064E3B] hover:bg-[#043629] text-white text-sm font-medium rounded-[4px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-[#16A765] focus:ring-offset-1"
+              className="w-full h-11 px-4 bg-[#064E3B] hover:bg-[#043629] text-white text-base font-semibold rounded-[4px] transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 focus:outline-none focus:ring-2 focus:ring-[#16A765] focus:ring-offset-1 cursor-pointer"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4.5 h-4.5 animate-spin" />
                   <span>Signing in...</span>
                 </>
               ) : (
@@ -264,13 +269,13 @@ export const SignIn: React.FC<SignInProps> = ({
         </form>
 
         {/* Footer Navigation Link */}
-        <div className="pt-2 border-t border-[#E1E6E1] text-center">
-          <p className="text-xs text-[#66716B]">
+        <div className="pt-3 border-t border-[#E1E6E1] text-center">
+          <p className="text-sm text-[#66716B]">
             New to BucksBunny?{' '}
             <button
               type="button"
               onClick={onNavigateToSignUp}
-              className="font-medium text-[#064E3B] hover:text-[#043629] hover:underline transition-colors focus:outline-none"
+              className="font-semibold text-[#064E3B] hover:text-[#043629] hover:underline transition-colors focus:outline-none cursor-pointer"
             >
               Create an account
             </button>
