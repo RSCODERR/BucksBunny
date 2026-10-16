@@ -1,0 +1,27 @@
+{
+  "name": "bucksbunny",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BucksBunny personal finance application foundation",
+  "scripts": {
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "build": "npm run build:backend && npm run build:frontend",
+    "start:backend": "npm --prefix backend run start",
+    "install:all": "npm --prefix backend install && npm --prefix frontend install"
+  },
+  "keywords": [
+    "personal-finance",
+    "react-19",
+    "vite",
+    "tailwind-v4",
+    "express",
+    "typescript",
+    "mongodb",
+    "mongoose"
+  ],
+  "author": "",
+  "license": "ISC"
+}
