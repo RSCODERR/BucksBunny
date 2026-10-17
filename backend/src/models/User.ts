@@ -6,6 +6,11 @@ export interface IUser extends Document {
   password: string;
   agreedToTerms: boolean;
   agreedToTermsAt?: Date;
+  isEmailVerified: boolean;
+  emailVerificationCode?: string | null;
+  emailVerificationExpires?: Date | null;
+  resetPasswordCode?: string | null;
+  resetPasswordExpires?: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,6 +44,26 @@ const UserSchema = new Schema<IUser>(
       default: false,
     },
     agreedToTermsAt: {
+      type: Date,
+      default: null,
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+    },
+    emailVerificationCode: {
+      type: String,
+      default: null,
+    },
+    emailVerificationExpires: {
+      type: Date,
+      default: null,
+    },
+    resetPasswordCode: {
+      type: String,
+      default: null,
+    },
+    resetPasswordExpires: {
       type: Date,
       default: null,
     },

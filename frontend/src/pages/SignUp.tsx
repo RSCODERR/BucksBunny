@@ -6,7 +6,7 @@ interface SignUpProps {
   onNavigateToSignIn?: () => void;
   onNavigateToTerms?: () => void;
   onNavigateToPrivacy?: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (email: string) => void;
 }
 
 export const SignUp: React.FC<SignUpProps> = ({
@@ -129,7 +129,7 @@ export const SignUp: React.FC<SignUpProps> = ({
 
       setIsSuccess(true);
       if (onSuccess) {
-        setTimeout(onSuccess, 1000);
+        setTimeout(() => onSuccess(email.trim()), 700);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not create account. Please try again.';

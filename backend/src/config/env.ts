@@ -9,6 +9,10 @@ export interface EnvConfig {
   NODE_ENV: 'development' | 'production' | 'test';
   MONGODB_URI: string;
   CORS_ORIGIN: string;
+  BREVO_API_KEY: string;
+  BREVO_SENDER_EMAIL: string;
+  BREVO_SENDER_NAME: string;
+  AUTH_SECRET: string;
 }
 
 function validateEnv(): EnvConfig {
@@ -64,6 +68,10 @@ function validateEnv(): EnvConfig {
     NODE_ENV: rawEnv,
     MONGODB_URI: rawMongoUri!.trim(),
     CORS_ORIGIN: rawCorsOrigin!.trim(),
+    BREVO_API_KEY: (process.env.BREVO_API_KEY || '').trim(),
+    BREVO_SENDER_EMAIL: (process.env.BREVO_SENDER_EMAIL || 'bucksbunnyft@gmail.com').trim(),
+    BREVO_SENDER_NAME: (process.env.BREVO_SENDER_NAME || 'BucksBunny').trim(),
+    AUTH_SECRET: (process.env.AUTH_SECRET || 'bucksbunny_auth_secret_dev_key_2026').trim(),
   };
 }
 

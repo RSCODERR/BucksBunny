@@ -6,7 +6,15 @@ interface FooterProps {
 }
 
 export const Footer: React.FC<FooterProps> = ({ currentPage, onNavigate }) => {
-  const isAuthPage = currentPage === 'signin' || currentPage === 'signup';
+  const isAuthPage =
+    currentPage === 'signin' ||
+    currentPage === 'signup' ||
+    currentPage === 'verify-email' ||
+    currentPage === 'forgot-password' ||
+    currentPage === 'reset-password' ||
+    currentPage === 'add-expense' ||
+    currentPage === 'privacy' ||
+    currentPage === 'terms';
 
   return (
     <footer

@@ -1,16 +1,18 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { authService } from '../services/authService';
+import { authService, AuthUserData } from '../services/authService';
 
 interface SignInProps {
   onNavigateToSignUp?: () => void;
   onNavigateToForgotPassword?: () => void;
-  onSuccess?: () => void;
+  onNavigateToVerifyEmail?: (email?: string) => void;
+  onSuccess?: (user?: AuthUserData) => void;
 }
 
 export const SignIn: React.FC<SignInProps> = ({
   onNavigateToSignUp,
   onNavigateToForgotPassword,
+  onNavigateToVerifyEmail,
   onSuccess,
 }) => {
   const [identifier, setIdentifier] = useState('');
@@ -67,10 +69,16 @@ export const SignIn: React.FC<SignInProps> = ({
     setIsLoading(true);
 
     try {
-      await authService.signIn({ identifier, password });
+      const response = await authService.signIn({ identifier, password });
+      if (response.data?.token) {
+        localStorage.setItem('bucksbunny_token', response.data.token);
+      }
+      if (response.data?.user) {
+        localStorage.setItem('bucksbunny_user', JSON.stringify(response.data.user));
+      }
       setIsSuccess(true);
       if (onSuccess) {
-        setTimeout(onSuccess, 1000);
+        setTimeout(() => onSuccess(response.data?.user), 800);
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Invalid credentials. Please try again.';
@@ -116,6 +124,15 @@ export const SignIn: React.FC<SignInProps> = ({
             <div className="flex-1">
               <p className="font-semibold">Authentication failed</p>
               <p className="mt-0.5 text-[#66716B]">{authError}</p>
+              {authError.toLowerCase().includes('verify your email') && onNavigateToVerifyEmail && (
+                <button
+                  type="button"
+                  onClick={() => onNavigateToVerifyEmail(identifier.includes('@') ? identifier.trim() : '')}
+                  className="mt-2 text-xs font-semibold text-[#064E3B] hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  Verify your email now &rarr;
+                </button>
+              )}
             </div>
           </div>
         )}

@@ -28,23 +28,31 @@ BucksBunny/
 │       │   ├── env.ts              # Strongly-typed environment validator (throws actionable errors)
 │       │   └── database.ts         # Mongoose connection manager with development fallback
 │       ├── controllers/
-│       │   ├── auth.controller.ts  # Handles signup (with mandatory terms agreement) and signin
+│       │   ├── auth.controller.ts  # Handles signup, signin with token generation
+│       │   ├── expense.controller.ts# Handles expense creation, validation and paise storage
 │       │   └── health.controller.ts# GET /api/v1/health handler
 │       ├── errors/
 │       │   └── AppError.ts         # Custom operational error class
 │       ├── middlewares/
+│       │   ├── auth.middleware.ts  # Bearer token verification and req.user attachment
 │       │   ├── cors.middleware.ts  # Origin-checked CORS policy middleware
 │       │   ├── error.middleware.ts # Centralized JSON error-handling middleware
 │       │   └── notFound.middleware.ts# Catch-all 404 middleware
 │       ├── models/
+│       │   ├── Debt.ts             # Debt schema for tracking receivables and payables from splits
+│       │   ├── Expense.ts          # Expense schema with integer paise, categories and payment methods
 │       │   └── User.ts             # User schema with mandatory agreedToTerms tracking
 │       ├── routes/
 │       │   ├── api/v1/
-│       │   │   ├── auth.routes.ts  # Authentication routes (/signup, /signin)
+│       │   │   ├── auth.routes.ts  # Authentication routes (/signup, /signin, /verify-email, /resend-verification)
+│       │   │   ├── expense.routes.ts# Protected expense creation route (/expenses)
 │       │   │   ├── health.routes.ts# Health endpoint router
 │       │   │   └── index.ts        # API v1 aggregator router
 │       │   └── index.ts            # Top-level API router mounting /api/v1
+│       ├── services/
+│       │   └── email.service.ts    # Brevo transactional HTTPS email delivery service
 │       ├── utils/
+│       │   ├── auth.token.ts       # Cryptographic HMAC-SHA256 JWT generation and verification
 │       │   └── password.ts         # Native cryptographic password hashing and verification
 │       ├── app.ts                  # Express application setup and middleware pipeline
 │       └── server.ts               # Server bootstrap, DB connection and graceful shutdown
@@ -69,17 +77,24 @@ BucksBunny/
         │   └── api.ts              # Strongly-typed API and Health response interfaces
         ├── services/
         │   ├── apiClient.ts        # Reusable typed fetch wrapper with timeouts and error handling
-        │   ├── authService.ts      # Authentication service calling signup and signin APIs
+        │   ├── authService.ts      # Authentication service calling signup, signin and verification APIs
+        │   ├── expenseService.ts   # Expense service for creating and validating expenses
         │   └── healthService.ts    # Service calling the backend health check API
         ├── pages/
+        │   ├── AddExpense.tsx      # Add Expense form with amount in INR, categories, and inline validation
         │   ├── SignIn.tsx          # Sign In form with password toggle, validation and error handling
         │   ├── SignUp.tsx          # Sign Up form with mandatory terms checkbox and API integration
+        │   ├── EmailVerification.tsx# 6-digit code verification form with resend timer
+        │   ├── ForgotPassword.tsx  # Forgot password form requesting 6-digit reset code
+        │   ├── ResetPassword.tsx   # Reset password form validating code and updating credentials
         │   ├── PrivacyPolicy.tsx   # Preserved Privacy Policy page
         │   └── TermsAndConditions.tsx # Preserved Terms and Conditions page
         ├── components/
         │   ├── common/
         │   │   ├── Badge.tsx       # Semantic status badge component (restrained border radius)
         │   │   └── StatusIndicator.tsx # Calm status indicator
+        │   ├── expenses/
+        │   │   └── AddNewExpenseModal.tsx# Add New Expense modal with split calculation and payer controls
         │   ├── layout/
         │   │   ├── Header.tsx      # Main application header with brand logo and page navigation
         │   │   └── Footer.tsx      # Application footer linking to Privacy Policy and Terms
@@ -103,6 +118,9 @@ BucksBunny/
 | `NODE_ENV` | String | No | `development` | Environment mode (development, production, test). |
 | `MONGODB_URI` | String | **Yes** | None | MongoDB connection string (e.g., `mongodb://localhost:27017/bucksbunny`). |
 | `CORS_ORIGIN` | String | **Yes** | None | Exact authorized frontend origin (e.g., `http://localhost:5173`). Wildcard `*` is denied. |
+| `BREVO_API_KEY` | String | No | None | Brevo (Sendinblue) API key for sending transactional verification emails over HTTPS. |
+| `BREVO_SENDER_EMAIL` | String | No | `bucksbunnyft@gmail.com` | Verified transactional email sender address registered with Brevo. |
+| `BREVO_SENDER_NAME` | String | No | `BucksBunny` | Display name attached to outgoing transactional emails. |
 
 > **Missing Configuration**: If `MONGODB_URI` or `CORS_ORIGIN` is omitted, the backend refuses to start and logs a clear, human-readable error with resolution instructions.
 
@@ -294,6 +312,7 @@ Content-Type: application/json
   "success": true,
   "data": {
     "message": "Signed in successfully.",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
     "user": {
       "id": "6ad2a51cce782cca405bd98c",
       "username": "rahul_sharma",
@@ -304,6 +323,185 @@ Content-Type: application/json
   }
 }
 ```
+
+### 4. `POST /api/v1/auth/verify-email`
+
+Verifies a user account using the 6-digit code sent via Brevo transactional email.
+
+**Request:**
+```http
+POST /api/v1/auth/verify-email HTTP/1.1
+Host: localhost:5000
+Content-Type: application/json
+
+{
+  "email": "rahul@example.com",
+  "code": "839214"
+}
+```
+
+**Success Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Email address verified successfully. You can now sign in.",
+    "isEmailVerified": true,
+    "user": {
+      "id": "6ad2a51cce782cca405bd98c",
+      "username": "rahul_sharma",
+      "email": "rahul@example.com",
+      "isEmailVerified": true
+    }
+  }
+}
+```
+
+### 5. `POST /api/v1/auth/resend-verification`
+
+Generates and delivers a fresh 6-digit verification code to the registered email address.
+
+**Request:**
+```http
+POST /api/v1/auth/resend-verification HTTP/1.1
+Host: localhost:5000
+Content-Type: application/json
+
+{
+  "email": "rahul@example.com"
+}
+```
+
+**Success Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "A fresh verification code has been sent to your email address.",
+    "email": "rahul@example.com"
+  }
+}
+```
+
+### 6. `POST /api/v1/auth/forgot-password`
+
+Initiates a password reset request and dispatches a 6-digit code via Brevo transactional email.
+
+**Request:**
+```http
+POST /api/v1/auth/forgot-password HTTP/1.1
+Host: localhost:5000
+Content-Type: application/json
+
+{
+  "email": "rahul@example.com"
+}
+```
+
+**Success Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "If an account exists with this email address, a 6-digit password reset code has been sent.",
+    "email": "rahul@example.com"
+  }
+}
+```
+
+### 7. `POST /api/v1/auth/reset-password`
+
+Validates the 6-digit reset code and sets a new password.
+
+**Request:**
+```http
+POST /api/v1/auth/reset-password HTTP/1.1
+Host: localhost:5000
+Content-Type: application/json
+
+{
+  "email": "rahul@example.com",
+  "code": "837963",
+  "newPassword": "NewStrongPassword123!"
+}
+```
+
+**Success Response (HTTP 200 OK):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Password has been reset successfully. You can now sign in with your new password."
+  }
+}
+```
+
+### 8. `POST /api/v1/expenses`
+
+Records a manual expense for the authenticated user. User identity is derived exclusively from the verified Bearer token. Monetary amounts are validated on the server and persisted as integer paise to prevent precision loss.
+
+**Headers:**
+- `Authorization: Bearer <auth_token>`
+- `Content-Type: application/json`
+
+**Supported Categories:**
+- Food & Dining
+- Transport
+- Shopping
+- Bills & Utilities
+- Entertainment
+- Health
+- Education
+- Other
+
+**Supported Payment Methods:**
+- UPI
+- Cash
+- Card
+- Other
+
+**Request:**
+```http
+POST /api/v1/expenses HTTP/1.1
+Host: localhost:5000
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Content-Type: application/json
+
+{
+  "amount": 249.50,
+  "title": "Grocery run",
+  "category": "Food & Dining",
+  "date": "2026-10-17",
+  "paymentMethod": "UPI",
+  "notes": "Weekly fruits and vegetables"
+}
+```
+
+**Success Response (HTTP 201 Created):**
+```json
+{
+  "success": true,
+  "data": {
+    "message": "Expense saved successfully.",
+    "expense": {
+      "id": "6ad3f821b023910c2847a12b",
+      "userId": "6ad2a51cce782cca405bd98c",
+      "amountInPaise": 24950,
+      "amountInRupees": 249.5,
+      "title": "Grocery run",
+      "category": "Food & Dining",
+      "date": "2026-10-17T00:00:00.000Z",
+      "paymentMethod": "UPI",
+      "notes": "Weekly fruits and vegetables",
+      "createdAt": "2026-10-17T16:45:10.892Z"
+    }
+  }
+}
+```
+
+**Error Responses:**
+- `HTTP 401 Unauthorized`: Missing, invalid, or expired Bearer token.
+- `HTTP 400 Bad Request`: Missing title, non-positive or invalid amount, unsupported category, malformed date, or notes exceeding 500 characters.
 
 ### Centralized Error Handling
 
@@ -357,30 +555,34 @@ Here is an explanation of every file in the BucksBunny project and why it exists
 - **`src/models/User.ts`**: Mongoose model representing user accounts, storing hashed passwords, unique usernames/emails, and mandatory `agreedToTerms` consent tracking.
 - **`src/controllers/auth.controller.ts`**: Handles account registration (`signUp`) with mandatory consent enforcement and password authentication (`signIn`).
 - **`src/controllers/health.controller.ts`**: Handles the health check request, querying database ready state, server uptime, and environment.
-- **`src/routes/api/v1/auth.routes.ts`**: Declares routes for authentication (`/signup`, `/signin`).
-- **`src/routes/api/v1/health.routes.ts`**: Declares routes for the health subsystem (`GET /`).
+- **`src/routes/api/v1/auth.routes.ts`**: Declares routes for authentication (/signup, /signin, /verify-email, /resend-verification).
+- **`src/routes/api/v1/health.routes.ts`**: Declares routes for the health subsystem (GET /).
 - **`src/routes/api/v1/index.ts`**: Aggregator for all API version 1 sub-routes.
-- **`src/routes/index.ts`**: Primary router mounting the `/api/v1` namespace.
-- **`src/utils/password.ts`**: Native cryptographic password hashing and verification using `crypto.scryptSync`.
+- **`src/routes/index.ts`**: Primary router mounting the /api/v1 namespace.
+- **`src/services/email.service.ts`**: Brevo (Sendinblue) transactional email delivery service using native HTTPS requests.
+- **`src/utils/password.ts`**: Native cryptographic password hashing and verification using crypto.scryptSync.
 - **`src/app.ts`**: Initializes Express, configures security headers/CORS, attaches JSON and URL-encoded body parsers, and mounts routes and error middlewares.
-- **`src/server.ts`**: Application entry point that loads config, connects to MongoDB, starts the HTTP server, and handles OS termination signals (`SIGINT`, `SIGTERM`) for graceful shutdown.
+- **`src/server.ts`**: Application entry point that loads config, connects to MongoDB, starts the HTTP server, and handles OS termination signals (SIGINT, SIGTERM) for graceful shutdown.
 
 ### Frontend (`frontend/`)
-- **`package.json`**: Defines frontend dependencies (`react` 19, `react-dom` 19, `lucide-react`) and dev tools (`vite`, `@tailwindcss/vite`, `tailwindcss` v4, `typescript`).
-- **`vite.config.ts`**: Vite configuration enabling React 19 fast refresh and the official `@tailwindcss/vite` plugin.
+- **`package.json`**: Defines frontend dependencies (react 19, react-dom 19, lucide-react) and dev tools (vite, @tailwindcss/vite, tailwindcss v4, typescript).
+- **`vite.config.ts`**: Vite configuration enabling React 19 fast refresh and the official @tailwindcss/vite plugin.
 - **`tsconfig.json`**, **`tsconfig.app.json`**, **`tsconfig.node.json`**: Modular TypeScript project references config separating application source code from build configuration.
-- **`index.html`**: Root HTML5 document with approved favicon (`/favicon.png`), Google Fonts (`Plus Jakarta Sans`, `JetBrains Mono`), and title.
-- **`public/`**: Stores approved brand assets (`logo.png`, `logo-dark.jpg`, `favicon.png`).
-- **`.env.example`**: Documents frontend environment variables (`VITE_API_BASE_URL`).
+- **`index.html`**: Root HTML5 document with approved favicon (/favicon.png), Google Fonts (Plus Jakarta Sans, JetBrains Mono), and title.
+- **`public/`**: Stores approved brand assets (logo.png, logo-dark.jpg, favicon.png).
+- **`.env.example`**: Documents frontend environment variables (VITE_API_BASE_URL).
 - **`.gitignore`**: Frontend-specific ignore rules.
-- **`src/index.css`**: Tailwind CSS v4 entry point with `@import "tailwindcss";`, dark neutral surfaces, warm off-white canvas styling, accessible typography, and zero glassmorphism.
-- **`src/config/env.ts`**: Loads and validates `VITE_API_BASE_URL` with helpful console warnings if missing.
+- **`src/index.css`**: Tailwind CSS v4 entry point with @import "tailwindcss";, dark neutral surfaces, warm off-white canvas styling, accessible typography, and zero glassmorphism.
+- **`src/config/env.ts`**: Loads and validates VITE_API_BASE_URL with helpful console warnings if missing.
 - **`src/types/api.ts`**: TypeScript definitions for API responses and the health check data model.
-- **`src/services/apiClient.ts`**: Reusable HTTP client wrapper around the browser `fetch` API supporting configurable base URLs, timeouts, JSON headers, and typed responses.
-- **`src/services/authService.ts`**: Authentication service calling the backend `POST /api/v1/auth/signup` and `POST /api/v1/auth/signin` endpoints.
-- **`src/services/healthService.ts`**: API service exposing the `checkHealth()` function.
+- **`src/services/apiClient.ts`**: Reusable HTTP client wrapper around the browser fetch API supporting configurable base URLs, timeouts, JSON headers, and typed responses.
+- **`src/services/authService.ts`**: Authentication service calling the backend /signup, /signin, /verify-email, /resend-verification, /forgot-password, and /reset-password endpoints.
+- **`src/services/healthService.ts`**: API service exposing the checkHealth() function.
 - **`src/pages/SignIn.tsx`**: Sign In page with visible labels, password visibility control, remember me toggle, forgot password action, and backend signin integration.
 - **`src/pages/SignUp.tsx`**: Sign Up page with username, email, password, and the mandatory terms agreement checkbox with backend persistence.
+- **`src/pages/EmailVerification.tsx`**: Email Verification page with 6-digit OTP code entry, auto-focus digit jumping, paste support, and a 60-second resend cooldown timer.
+- **`src/pages/ForgotPassword.tsx`**: Forgot Password page allowing users to request a 6-digit password reset code delivered to their email.
+- **`src/pages/ResetPassword.tsx`**: Reset Password page that validates the 6-digit code, ensures password strength, and updates user credentials.
 - **`src/pages/PrivacyPolicy.tsx`**: Preserved Privacy Policy page with clear information regarding data collection, storage, and user isolation.
 - **`src/pages/TermsAndConditions.tsx`**: Preserved Terms and Conditions page with financial disclaimers and permitted use policies.
 - **`src/components/common/Badge.tsx`**: Reusable status and category badge component with restrained border radii.
@@ -388,6 +590,6 @@ Here is an explanation of every file in the BucksBunny project and why it exists
 - **`src/components/layout/Header.tsx`**: Header with approved brand logo, application title, and navigation for Sign In and Sign Up.
 - **`src/components/layout/Footer.tsx`**: Footer with brand identity and links to Privacy Policy and Terms and Conditions.
 - **`src/components/health/HealthStatusCard.tsx`**: Diagnostic component displaying API connection status, MongoDB connection state, uptime, and collapsible connection details.
-- **`src/App.tsx`**: Main application component managing active views (Sign In, Sign Up, Privacy Policy, Terms and Conditions).
+- **`src/App.tsx`**: Main application component managing active views (Sign In, Sign Up, Email Verification, Forgot Password, Reset Password, Privacy Policy, Terms and Conditions).
 - **`src/main.tsx`**: React 19 entry point mounting the root application into the DOM.
 - **`src/vite-env.d.ts`**: Vite client environment type declarations.

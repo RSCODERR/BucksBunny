@@ -28,12 +28,16 @@ export async function apiClient<T>(
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${env.apiBaseUrl}${cleanEndpoint}`;
 
+  const token = typeof window !== 'undefined' ? localStorage.getItem('bucksbunny_token') : null;
+  const authHeaders: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
   try {
     const response = await fetch(url, {
       ...restOptions,
       headers: {
         'Content-Type': 'application/json',
         Accept: 'application/json',
+        ...authHeaders,
         ...headers,
       },
       signal: controller.signal,
