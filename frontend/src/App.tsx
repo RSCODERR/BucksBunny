@@ -8,10 +8,13 @@ import { SignUp } from './pages/SignUp';
 import { EmailVerification } from './pages/EmailVerification';
 import { ForgotPassword } from './pages/ForgotPassword';
 import { ResetPassword } from './pages/ResetPassword';
-
+import { Overview } from './pages/Overview';
+import { Transactions } from './pages/Transactions';
+import { People } from './pages/People';
+import { DebtsAndDues } from './pages/DebtsAndDues';
+import { DashboardLayout, DashboardTab } from './components/layout/DashboardLayout';
 import { AddNewExpenseModal } from './components/expenses/AddNewExpenseModal';
 import { AuthUserData } from './services/authService';
-import { ExpenseData } from './services/expenseService';
 
 type PageType =
   | 'signin'
@@ -21,7 +24,7 @@ type PageType =
   | 'reset-password'
   | 'privacy'
   | 'terms'
-  | 'add-expense';
+  | 'dashboard';
 
 export const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<AuthUserData | null>(() => {
@@ -41,7 +44,7 @@ export const App: React.FC = () => {
     try {
       const token = localStorage.getItem('bucksbunny_token');
       if (token) {
-        return 'add-expense';
+        return 'dashboard';
       }
     } catch {
       // ignore
@@ -49,8 +52,9 @@ export const App: React.FC = () => {
     return 'signin';
   });
 
-  const [isModalOpen, setIsModalOpen] = useState<boolean>(true);
-  const [recentSavedExpense, setRecentSavedExpense] = useState<ExpenseData | null>(null);
+  const [activeDashboardTab, setActiveDashboardTab] = useState<DashboardTab>('overview');
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [refreshTrigger, setRefreshTrigger] = useState<number>(0);
   const [verificationEmail, setVerificationEmail] = useState<string>('');
   const [resetPasswordEmail, setResetPasswordEmail] = useState<string>('');
 
@@ -67,8 +71,71 @@ export const App: React.FC = () => {
     currentPage === 'signup' ||
     currentPage === 'verify-email' ||
     currentPage === 'forgot-password' ||
-    currentPage === 'reset-password' ||
-    currentPage === 'add-expense';
+    currentPage === 'reset-password';
+
+  // If user is authenticated and on dashboard
+  if (currentUser && currentPage === 'dashboard') {
+    return (
+      <DashboardLayout
+        currentUser={currentUser}
+        activeTab={activeDashboardTab}
+        onTabChange={(tab) => setActiveDashboardTab(tab)}
+        onOpenAddExpense={() => setIsModalOpen(true)}
+        onSignOut={handleSignOut}
+      >
+        {activeDashboardTab === 'overview' ? (
+          <Overview
+            onOpenAddExpense={() => setIsModalOpen(true)}
+            onNavigateToTab={(tab) => setActiveDashboardTab(tab)}
+            refreshTrigger={refreshTrigger}
+          />
+        ) : activeDashboardTab === 'transactions' ? (
+          <Transactions
+            onOpenAddExpense={() => setIsModalOpen(true)}
+            refreshTrigger={refreshTrigger}
+            currentUser={currentUser}
+          />
+        ) : activeDashboardTab === 'debts' ? (
+          <DebtsAndDues
+            onOpenAddExpense={() => setIsModalOpen(true)}
+            refreshTrigger={refreshTrigger}
+          />
+        ) : activeDashboardTab === 'people' ? (
+          <People
+            onOpenAddExpense={() => setIsModalOpen(true)}
+          />
+        ) : (
+          <div className="p-8 sm:p-12 max-w-2xl mx-auto text-center space-y-4">
+            <div className="p-6 bg-white border border-[#CBD5E1] rounded-xl shadow-xs space-y-3">
+              <h3 className="text-lg font-bold text-[#111827] capitalize">
+                {activeDashboardTab}
+              </h3>
+              <p className="text-xs text-[#6B7280]">
+                This section is under active incremental development. BucksBunny is expanding systematically.
+              </p>
+              <button
+                type="button"
+                onClick={() => setActiveDashboardTab('overview')}
+                className="px-4 py-2 bg-[#064E3B] hover:bg-[#04392B] text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+              >
+                Return to Overview
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Centered Add New Expense Modal */}
+        <AddNewExpenseModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onExpenseSaved={() => {
+            setRefreshTrigger((prev) => prev + 1);
+          }}
+          currentUser={currentUser}
+        />
+      </DashboardLayout>
+    );
+  }
 
   return (
     <div
@@ -99,8 +166,7 @@ export const App: React.FC = () => {
               if (user) {
                 setCurrentUser(user);
               }
-              setIsModalOpen(true);
-              setCurrentPage('add-expense');
+              setCurrentPage('dashboard');
             }}
           />
         )}
@@ -149,132 +215,14 @@ export const App: React.FC = () => {
 
         {currentPage === 'privacy' && (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 w-full">
-            <PrivacyPolicy onBack={() => setCurrentPage('signin')} />
+            <PrivacyPolicy onBack={() => setCurrentPage(currentUser ? 'dashboard' : 'signin')} />
           </div>
         )}
 
         {currentPage === 'terms' && (
           <div className="max-w-4xl mx-auto px-4 sm:px-6 py-10 w-full">
-            <TermsAndConditions onBack={() => setCurrentPage('signin')} />
+            <TermsAndConditions onBack={() => setCurrentPage(currentUser ? 'dashboard' : 'signin')} />
           </div>
-        )}
-
-        {currentPage === 'add-expense' && (
-          currentUser ? (
-            <div className="flex-1 w-full bg-[#F7F8F5] py-10 px-4 sm:px-6">
-              <div className="max-w-4xl mx-auto space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#E1E6E1] pb-5">
-                  <div>
-                    <h1 className="text-2xl font-bold tracking-tight text-[#17211D]">
-                      Personal Ledger
-                    </h1>
-                    <p className="text-sm text-[#66716B] mt-0.5">
-                      Record transactions, manage personal expenses, and split shared costs.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(true)}
-                    className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#064E3B] hover:bg-[#04392B] text-white font-semibold text-sm rounded-md transition-colors shadow-xs cursor-pointer"
-                  >
-                    <span>+ Add New Expense</span>
-                  </button>
-                </div>
-
-                {recentSavedExpense ? (
-                  <div className="p-5 bg-white border border-[#E1E6E1] rounded-xl shadow-xs space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-[#064E3B] bg-[#E8F5EC] border border-[#C7E9D5] px-2 py-0.5 rounded uppercase">
-                        Recently Saved
-                      </span>
-                      <span className="text-xs text-[#66716B]">
-                        {new Date(recentSavedExpense.date).toLocaleDateString()}
-                      </span>
-                    </div>
-
-                    <div className="flex items-baseline justify-between pt-1">
-                      <div>
-                        <h3 className="text-lg font-bold text-[#17211D]">
-                          {recentSavedExpense.title}
-                        </h3>
-                        <p className="text-xs text-[#66716B]">
-                          {recentSavedExpense.category}
-                          {recentSavedExpense.merchant ? ` · ${recentSavedExpense.merchant}` : ''}
-                          {recentSavedExpense.paymentMethod ? ` · ${recentSavedExpense.paymentMethod}` : ''}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-xl font-bold font-mono text-[#17211D]">
-                          ₹ {recentSavedExpense.amountInRupees.toFixed(2)}
-                        </span>
-                        {recentSavedExpense.isSplit && (
-                          <p className="text-[11px] font-semibold text-[#064E3B]">
-                            Shared split active
-                          </p>
-                        )}
-                      </div>
-                    </div>
-
-                    {recentSavedExpense.isSplit && recentSavedExpense.splitDetails && (
-                      <div className="pt-3 border-t border-[#F0F2EE] text-xs text-[#526359] space-y-1">
-                        <p>
-                          <strong>Payer:</strong> {recentSavedExpense.splitDetails.payerName}
-                        </p>
-                        <p>
-                          <strong>Your personal expense:</strong> ₹
-                          {(recentSavedExpense.splitDetails.personalExpenseInPaise / 100).toFixed(2)}
-                        </p>
-                        {recentSavedExpense.splitDetails.owedToUserInPaise > 0 && (
-                          <p className="text-[#064E3B] font-semibold">
-                            Others owe you: ₹
-                            {(recentSavedExpense.splitDetails.owedToUserInPaise / 100).toFixed(2)}
-                          </p>
-                        )}
-                        {recentSavedExpense.splitDetails.userOwesInPaise > 0 && (
-                          <p className="text-[#C24141] font-semibold">
-                            You owe: ₹
-                            {(recentSavedExpense.splitDetails.userOwesInPaise / 100).toFixed(2)}
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="p-8 bg-white border border-[#E1E6E1] rounded-xl text-center space-y-3">
-                    <p className="text-sm font-semibold text-[#17211D]">
-                      No expenses recorded in this session yet.
-                    </p>
-                    <p className="text-xs text-[#66716B] max-w-sm mx-auto">
-                      Click "+ Add New Expense" to create a personal expense or split one with friends.
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setIsModalOpen(true)}
-                      className="px-4 py-2 bg-[#064E3B] hover:bg-[#04392B] text-white text-xs font-semibold rounded-md transition-colors cursor-pointer"
-                    >
-                      Open Expense Form
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ) : (
-            <div className="min-h-[calc(100vh-72px)] w-full flex items-center justify-center py-12 px-4 sm:px-6 bg-[#F7F8F5]">
-              <div className="w-full max-w-[440px] bg-white border border-[#E1E6E1] rounded-lg shadow-sm p-7 sm:p-9 text-center space-y-4">
-                <h2 className="text-xl font-bold text-[#17211D]">Authentication required</h2>
-                <p className="text-sm text-[#66716B]">
-                  Please sign in to record and manage your personal expenses.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setCurrentPage('signin')}
-                  className="w-full h-11 bg-[#064E3B] hover:bg-[#04392B] text-white font-semibold text-base rounded-md transition-colors cursor-pointer"
-                >
-                  Go to Sign In
-                </button>
-              </div>
-            </div>
-          )
         )}
       </main>
 
@@ -283,12 +231,13 @@ export const App: React.FC = () => {
         <AddNewExpenseModal
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
-          onExpenseSaved={(saved) => {
-            setRecentSavedExpense(saved);
+          onExpenseSaved={() => {
+            setRefreshTrigger((prev) => prev + 1);
           }}
           currentUser={currentUser}
         />
       )}
+
 
       <Footer currentPage={currentPage} onNavigate={(p) => setCurrentPage(p as PageType)} />
     </div>
@@ -296,3 +245,4 @@ export const App: React.FC = () => {
 };
 
 export default App;
+

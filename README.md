@@ -470,6 +470,7 @@ Content-Type: application/json
 {
   "amount": 249.50,
   "title": "Grocery run",
+  "item": "Groceries",
   "category": "Food & Dining",
   "date": "2026-10-17",
   "paymentMethod": "UPI",
@@ -489,6 +490,7 @@ Content-Type: application/json
       "amountInPaise": 24950,
       "amountInRupees": 249.5,
       "title": "Grocery run",
+      "item": "Groceries",
       "category": "Food & Dining",
       "date": "2026-10-17T00:00:00.000Z",
       "paymentMethod": "UPI",

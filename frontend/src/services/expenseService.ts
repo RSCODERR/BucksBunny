@@ -47,8 +47,8 @@ export interface ExpenseData {
   time?: string | null;
   paymentMethod?: PaymentMethod | null;
   merchant?: string | null;
+  item?: string | null;
   notes?: string | null;
-  tags?: string[];
   isSplit?: boolean;
   splitDetails?: SplitDetails | null;
   createdAt: string;
@@ -62,8 +62,8 @@ export interface CreateExpensePayload {
   time?: string;
   paymentMethod?: string;
   merchant?: string;
+  item?: string;
   notes?: string;
-  tags?: string[];
   isSplit?: boolean;
   splitDetails?: {
     payerType: 'YOU' | 'OTHER';
@@ -99,11 +99,187 @@ export function calculateEqualSplitInPaise(totalPaise: number, count: number): n
   return shares;
 }
 
+export interface CategoryBreakdownItem {
+  category: string;
+  totalInPaise: number;
+  totalInRupees: number;
+  percentage: number;
+  color: string;
+}
+
+export interface DebtItem {
+  id: string;
+  debtorName: string;
+  creditorName: string;
+  isReceivable: boolean;
+  amountInPaise: number;
+  amountInRupees: number;
+  initialAmountInPaise?: number;
+  initialAmountInRupees?: number;
+  totalPaidInPaise?: number;
+  totalPaidInRupees?: number;
+  status?: 'Unsettled' | 'Partially Repaid' | 'Settled';
+  notes?: string;
+  upiId?: string | null;
+  dueDate?: string | null;
+  createdAt?: string | null;
+  isSettled: boolean;
+}
+
+export interface RepaymentItem {
+  id: string;
+  debtId: string;
+  counterpartyName: string;
+  isReceivable: boolean;
+  amountInPaise: number;
+  amountInRupees: number;
+  previousBalanceInPaise: number;
+  previousBalanceInRupees: number;
+  newBalanceInPaise: number;
+  newBalanceInRupees: number;
+  channel: string;
+  memo: string;
+  date: string;
+}
+
+export interface MonthlyTrendItem {
+  month: string;
+  label: string;
+  amountInPaise: number;
+  amountInRupees: number;
+}
+
+export interface MonthlyTableItem {
+  period: string;
+  spending: number;
+  variance: string;
+  status: 'Active' | 'Closed';
+}
+
+export interface TransactionItem {
+  id: string;
+  title: string;
+  merchant?: string;
+  category: string;
+  date: string;
+  splitStatus: string;
+  amountInRupees: number;
+  amountInPaise: number;
+  isSplit?: boolean;
+}
+
+export interface ExpenseOverviewData {
+  isSampleData: boolean;
+  totalSpendingInPaise: number;
+  totalSpendingInRupees: number;
+  transactionCount: number;
+  personalShareInPaise: number;
+  personalShareInRupees: number;
+  moneyOwedToUserInPaise: number;
+  moneyOwedToUserInRupees: number;
+  peopleOwedToUserCount: number;
+  moneyUserOwesInPaise: number;
+  moneyUserOwesInRupees: number;
+  peopleUserOwesCount: number;
+  categoryBreakdown: CategoryBreakdownItem[];
+  debts: DebtItem[];
+  monthlyTrend: MonthlyTrendItem[];
+  monthlyTable: MonthlyTableItem[];
+  recentTransactions: TransactionItem[];
+}
+
+export interface UnifiedTransaction {
+  id: string;
+  type: 'EXPENSE' | 'DEBT_SETTLEMENT';
+  rawId: string;
+  date: string;
+  formattedDate: string;
+  time: string;
+  merchant: string;
+  title: string;
+  item: string;
+  notes: string;
+  category: string;
+  paymentMethod: string;
+  isSplit: boolean;
+  totalAmountInPaise: number;
+  totalAmountInRupees: number;
+  yourShareInPaise: number;
+  yourShareInRupees: number;
+  isCredit: boolean;
+  splitResponsibility: {
+    kind: 'PERSONAL' | 'SPLIT_PAID' | 'SPLIT_OWE' | 'SETTLEMENT';
+    headline: string;
+    subline: string;
+    accentColor: 'neutral' | 'emerald' | 'amber' | 'rose';
+  };
+  splitDetails?: SplitDetails | null;
+  rawExpense?: ExpenseData;
+}
+
 export const expenseService = {
+  getTransactions: async (): Promise<ApiResponse<{ transactions: UnifiedTransaction[]; count: number; totalTurnoverInRupees: number }>> => {
+    return apiClient<ApiResponse<{ transactions: UnifiedTransaction[]; count: number; totalTurnoverInRupees: number }>>('/expenses', {
+      method: 'GET',
+    });
+  },
+
   createExpense: async (payload: CreateExpensePayload): Promise<ApiResponse<CreateExpenseResponseData>> => {
     return apiClient<ApiResponse<CreateExpenseResponseData>>('/expenses', {
       method: 'POST',
       body: JSON.stringify(payload),
     });
   },
+
+  updateExpense: async (id: string, payload: CreateExpensePayload): Promise<ApiResponse<CreateExpenseResponseData>> => {
+    return apiClient<ApiResponse<CreateExpenseResponseData>>(`/expenses/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    });
+  },
+
+  getOverview: async (): Promise<ApiResponse<ExpenseOverviewData>> => {
+    return apiClient<ApiResponse<ExpenseOverviewData>>('/expenses/overview', {
+      method: 'GET',
+    });
+  },
+
+  repayDebt: async (
+    debtId: string,
+    payload: { amount: number; channel?: string; memo?: string; date?: string }
+  ): Promise<ApiResponse<{ message: string; debt: DebtItem; repayment: RepaymentItem }>> => {
+    return apiClient<ApiResponse<{ message: string; debt: DebtItem; repayment: RepaymentItem }>>(
+      `/expenses/debts/${debtId}/repay`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }
+    );
+  },
+
+  getRepayments: async (): Promise<ApiResponse<{ repayments: RepaymentItem[]; count: number }>> => {
+    return apiClient<ApiResponse<{ repayments: RepaymentItem[]; count: number }>>('/expenses/repayments', {
+      method: 'GET',
+    });
+  },
+
+  settleDebt: async (debtId: string): Promise<ApiResponse<{ message: string; isSettled: boolean }>> => {
+    return apiClient<ApiResponse<{ message: string; isSettled: boolean }>>(`/expenses/debts/${debtId}/settle`, {
+      method: 'PATCH',
+    });
+  },
+
+  deleteExpense: async (id: string): Promise<ApiResponse<{ message: string; id: string }>> => {
+    return apiClient<ApiResponse<{ message: string; id: string }>>(`/expenses/${id}`, {
+      method: 'DELETE',
+    });
+  },
+
+  deleteDebt: async (debtId: string): Promise<ApiResponse<{ message: string; debtId: string }>> => {
+    return apiClient<ApiResponse<{ message: string; debtId: string }>>(`/expenses/debts/${debtId}`, {
+      method: 'DELETE',
+    });
+  },
 };
+
+

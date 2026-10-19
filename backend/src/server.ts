@@ -2,8 +2,10 @@ import { Server } from 'http';
 import app from './app';
 import { env } from './config/env';
 import { connectToDatabase, disconnectFromDatabase } from './config/database';
+import { purgeExpiredResetCodes } from './controllers/auth.controller';
 
 let server: Server | null = null;
+let resetCodeCleanupInterval: NodeJS.Timeout | null = null;
 
 async function startServer(): Promise<void> {
   console.log(`[Server] Starting BucksBunny API in ${env.NODE_ENV} mode...`);
@@ -11,6 +13,12 @@ async function startServer(): Promise<void> {
   // Connect to MongoDB
   try {
     await connectToDatabase();
+    // Purge any lingering expired password reset codes from the database
+    await purgeExpiredResetCodes();
+    // Schedule periodic purge every 60 seconds
+    resetCodeCleanupInterval = setInterval(() => {
+      purgeExpiredResetCodes();
+    }, 60 * 1000);
   } catch (error) {
     console.error(`[Server Warning] Could not connect to MongoDB initially. Health check will report database status.`);
     // Note: In development or during bootstrapping, we allow server to run so health checks can report status,
@@ -41,6 +49,11 @@ async function startServer(): Promise<void> {
 // Graceful shutdown
 async function gracefulShutdown(signal: string): Promise<void> {
   console.log(`\n[Server] Received ${signal}. Initiating graceful shutdown...`);
+
+  if (resetCodeCleanupInterval) {
+    clearInterval(resetCodeCleanupInterval);
+    resetCodeCleanupInterval = null;
+  }
 
   if (server) {
     server.close(async () => {

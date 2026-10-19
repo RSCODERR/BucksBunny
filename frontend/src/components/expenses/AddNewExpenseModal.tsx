@@ -5,13 +5,14 @@ import {
   Calendar,
   Utensils,
   CreditCard,
-  Plus,
   Check,
   Loader2,
   AlertCircle,
   CheckCircle2,
   UserPlus,
   Trash2,
+  ShoppingBag,
+  ShieldCheck,
 } from 'lucide-react';
 import {
   expenseService,
@@ -22,6 +23,7 @@ import {
   calculateEqualSplitInPaise,
   ExpenseData,
 } from '../../services/expenseService';
+import { peopleService, PersonItem } from '../../services/peopleService';
 
 export interface ParticipantItem {
   id: string;
@@ -37,6 +39,7 @@ interface AddNewExpenseModalProps {
   onClose: () => void;
   onExpenseSaved?: (expense: ExpenseData) => void;
   currentUser?: { username?: string; email?: string } | null;
+  expenseToEdit?: any | null;
 }
 
 export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
@@ -44,12 +47,14 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
   onClose,
   onExpenseSaved,
   currentUser,
+  expenseToEdit,
 }) => {
   const currentUserName = currentUser?.username || currentUser?.email?.split('@')[0] || 'You';
 
   // Base Transaction Fields
   const [amount, setAmount] = useState<string>('');
   const [merchant, setMerchant] = useState<string>('');
+  const [item, setItem] = useState<string>('');
   const [title, setTitle] = useState<string>('');
   const [date, setDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [time, setTime] = useState<string>(() => {
@@ -58,16 +63,14 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
   });
   const [category, setCategory] = useState<ExpenseCategory>('Food & Dining');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('UPI');
-  const [tags, setTags] = useState<string[]>(['#dinner', '#friends']);
-  const [newTagInput, setNewTagInput] = useState<string>('');
-  const [isAddingTag, setIsAddingTag] = useState<boolean>(false);
 
   // Split Expense Section
   const [isSplit, setIsSplit] = useState<boolean>(false);
   const [payerType, setPayerType] = useState<'YOU' | 'OTHER'>('YOU');
-  const [otherPayerId, setOtherPayerId] = useState<string>('p1');
+  const [otherPayerId, setOtherPayerId] = useState<string>('');
   const [allocationRule, setAllocationRule] = useState<'EQUAL' | 'CUSTOM' | 'PERCENTAGE'>('EQUAL');
 
+  // Default participants list contains ONLY the current user (no hardcoded names)
   const [participants, setParticipants] = useState<ParticipantItem[]>([
     {
       id: 'current_user',
@@ -75,28 +78,13 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
       isCurrentUser: true,
       selected: true,
       customRupees: '',
-      percentage: '33.3',
-    },
-    {
-      id: 'p1',
-      name: 'Rahul Verma',
-      isCurrentUser: false,
-      selected: true,
-      customRupees: '',
-      percentage: '33.3',
-    },
-    {
-      id: 'p2',
-      name: 'Aman Gupta',
-      isCurrentUser: false,
-      selected: true,
-      customRupees: '',
-      percentage: '33.4',
+      percentage: '100',
     },
   ]);
 
   const [newPersonName, setNewPersonName] = useState<string>('');
   const [isAddingPerson, setIsAddingPerson] = useState<boolean>(false);
+  const [savedPeople, setSavedPeople] = useState<PersonItem[]>([]);
 
   // Interaction & Validation States
   const [isDirty, setIsDirty] = useState<boolean>(false);
@@ -175,21 +163,52 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
 
   const allocationDifferencePaise = totalPaise - allocatedTotalPaise;
 
-  // Tag actions
-  const handleAddTag = () => {
-    const clean = newTagInput.trim().replace(/^#+/, '');
-    if (clean && !tags.includes(`#${clean}`)) {
-      setTags((prev) => [...prev, `#${clean}`]);
-      markDirty();
-    }
-    setNewTagInput('');
-    setIsAddingTag(false);
-  };
+  // Live projected Final Form standing for all counterparty participants
+  const participantFinalForms = useMemo(() => {
+    const currentUserShare = calculatedShares.find((p) => p.isCurrentUser);
+    const personalExpenseInRupees = currentUserShare ? currentUserShare.shareRupees : 0;
 
-  const handleRemoveTag = (tagToRemove: string) => {
-    setTags((prev) => prev.filter((t) => t !== tagToRemove));
-    markDirty();
-  };
+    return participants
+      .filter((p) => !p.isCurrentUser)
+      .map((p) => {
+        const shareObj = calculatedShares.find((cs) => cs.id === p.id);
+        const shareRupees = p.selected && shareObj ? shareObj.shareRupees : 0;
+
+        const savedPerson = savedPeople.find(
+          (sp) => sp.name.toLowerCase().trim() === p.name.toLowerCase().trim()
+        );
+
+        const hasPreviousDebt = Boolean(savedPerson && savedPerson.hasActiveDebt);
+        const previousNet = hasPreviousDebt
+          ? (savedPerson!.isReceivable ? savedPerson!.balanceInRupees : -savedPerson!.balanceInRupees)
+          : 0;
+
+        let impact = 0;
+        if (payerType === 'YOU') {
+          // You paid total; participant owes you their individual share
+          impact = shareRupees;
+        } else if (payerType === 'OTHER') {
+          if (p.id === otherPayerId) {
+            // This participant paid total; you owe them your personal share
+            impact = -personalExpenseInRupees;
+          } else {
+            // Another party paid; no direct new debt between you and this participant
+            impact = 0;
+          }
+        }
+
+        const projectedNet = previousNet + impact;
+        return {
+          id: p.id,
+          name: p.name,
+          hasPreviousDebt,
+          previousNet,
+          impact,
+          projectedNet,
+          isSettled: Math.abs(projectedNet) < 0.005,
+        };
+      });
+  }, [participants, calculatedShares, savedPeople, payerType, otherPayerId]);
 
   // Participant actions
   const handleToggleParticipant = (id: string) => {
@@ -197,7 +216,7 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
       const countSelected = prev.filter((p) => p.selected).length;
       return prev.map((p) => {
         if (p.id === id) {
-          // Prevent unchecking if it's the last selected participant
+          // Prevent unchecking if it is the only selected participant
           if (p.selected && countSelected <= 1) return p;
           return { ...p, selected: !p.selected };
         }
@@ -221,54 +240,173 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
     markDirty();
   };
 
-  const handleAddPerson = () => {
-    const name = newPersonName.trim();
-    if (!name) return;
-    const newId = `p_${Date.now()}`;
-    setParticipants((prev) => [
-      ...prev,
-      {
-        id: newId,
-        name,
-        isCurrentUser: false,
-        selected: true,
-        customRupees: '',
-        percentage: '0',
-      },
-    ]);
-    setNewPersonName('');
-    setIsAddingPerson(false);
-    markDirty();
-  };
-
-  const handleRemovePerson = (id: string) => {
-    setParticipants((prev) => prev.filter((p) => p.id !== id));
-    if (otherPayerId === id) {
-      setOtherPayerId('p1');
-    }
-    markDirty();
-  };
-
-  // Reset form
+  // Reset form completely so no stale values linger
   const resetForm = () => {
     setAmount('');
     setMerchant('');
+    setItem('');
     setTitle('');
     setDate(new Date().toISOString().split('T')[0]);
     const now = new Date();
     setTime(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`);
     setCategory('Food & Dining');
     setPaymentMethod('UPI');
-    setTags(['#dinner', '#friends']);
     setIsSplit(false);
     setPayerType('YOU');
+    setOtherPayerId('');
     setAllocationRule('EQUAL');
-    setParticipants((prev) =>
-      prev.map((p) => ({ ...p, customRupees: '', percentage: '33.3', selected: true }))
-    );
+    setParticipants([
+      {
+        id: 'current_user',
+        name: `You (${currentUserName})`,
+        isCurrentUser: true,
+        selected: true,
+        customRupees: '',
+        percentage: '100',
+      },
+    ]);
+    setNewPersonName('');
+    setIsAddingPerson(false);
     setErrors({});
     setServerError(null);
+    setSuccessBanner(null);
     setIsDirty(false);
+    setShowDiscardConfirm(false);
+  };
+
+  // Whenever modal opens, guarantee it is 100% fresh or prefilled from expenseToEdit
+  useEffect(() => {
+    if (isOpen) {
+      if (expenseToEdit) {
+        // Prefill values from existing expense
+        const exp = expenseToEdit.rawExpense || expenseToEdit;
+        const amt = exp.amountInRupees !== undefined
+          ? String(exp.amountInRupees)
+          : (exp.totalAmountInRupees !== undefined
+              ? String(exp.totalAmountInRupees)
+              : (exp.amountInPaise ? (exp.amountInPaise / 100).toFixed(2) : ''));
+        setAmount(amt);
+        setMerchant(exp.merchant || '');
+        setItem(exp.item || '');
+        setTitle(exp.notes || exp.title || '');
+        if (exp.date) {
+          try {
+            setDate(new Date(exp.date).toISOString().split('T')[0]);
+          } catch {
+            setDate(new Date().toISOString().split('T')[0]);
+          }
+        }
+        if (exp.time) {
+          setTime(exp.time);
+        }
+        if (exp.category) {
+          setCategory(exp.category as ExpenseCategory);
+        }
+        if (exp.paymentMethod) {
+          setPaymentMethod(exp.paymentMethod as PaymentMethod);
+        }
+
+        const isExpSplit = Boolean(exp.isSplit);
+        setIsSplit(isExpSplit);
+
+        if (isExpSplit && exp.splitDetails) {
+          const sd = exp.splitDetails;
+          setPayerType(sd.payerType === 'YOU' ? 'YOU' : 'OTHER');
+          setAllocationRule(sd.allocationRule === 'EXACT' ? 'CUSTOM' : (sd.allocationRule || 'EQUAL'));
+
+          if (Array.isArray(sd.participants) && sd.participants.length > 0) {
+            const parts: ParticipantItem[] = sd.participants.map((p: any, idx: number) => {
+              const isMe = Boolean(p.isCurrentUser || p.name?.toLowerCase().startsWith('you'));
+              const shareRupees = p.shareInPaise ? (p.shareInPaise / 100).toFixed(2) : (p.shareInRupees ? String(p.shareInRupees) : '');
+              return {
+                id: isMe ? 'current_user' : `participant_${idx}_${p.name}`,
+                name: isMe ? `You (${currentUserName})` : p.name,
+                isCurrentUser: isMe,
+                selected: true,
+                customRupees: shareRupees,
+                percentage: p.percentage ? String(p.percentage) : '',
+              };
+            });
+            setParticipants(parts);
+
+            if (sd.payerType !== 'YOU') {
+              const matchPayer = parts.find((p) => p.name.toLowerCase() === (sd.payerName || '').toLowerCase());
+              if (matchPayer) {
+                setOtherPayerId(matchPayer.id);
+              }
+            }
+          }
+        }
+        setErrors({});
+        setServerError(null);
+        setSuccessBanner(null);
+        setIsDirty(false);
+      } else {
+        resetForm();
+      }
+
+      peopleService
+        .getPeople()
+        .then((res) => {
+          if (res.data?.people) {
+            setSavedPeople(res.data.people);
+          }
+        })
+        .catch(() => {
+          // ignore error
+        });
+    }
+  }, [isOpen, expenseToEdit, currentUserName]);
+
+  const handleAddPerson = (nameOverride?: string) => {
+    const raw = typeof nameOverride === 'string' ? nameOverride : newPersonName;
+    const name = raw.trim();
+    if (!name) return;
+
+    // Check if participant is already added
+    const alreadyAdded = participants.some(
+      (p) => p.name.toLowerCase().trim() === name.toLowerCase().trim()
+    );
+    if (alreadyAdded) {
+      setNewPersonName('');
+      setIsAddingPerson(false);
+      return;
+    }
+
+    const newId = `p_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    setParticipants((prev) => {
+      const updated = [
+        ...prev,
+        {
+          id: newId,
+          name,
+          isCurrentUser: false,
+          selected: true,
+          customRupees: '',
+          percentage: '0',
+        },
+      ];
+      // Automatically set as other payer if none selected yet
+      if (!otherPayerId) {
+        setOtherPayerId(newId);
+      }
+      return updated;
+    });
+    setNewPersonName('');
+    setIsAddingPerson(false);
+    markDirty();
+  };
+
+  const handleRemovePerson = (id: string) => {
+    setParticipants((prev) => {
+      const remaining = prev.filter((p) => p.id !== id);
+      if (otherPayerId === id) {
+        const nextOther = remaining.find((p) => !p.isCurrentUser);
+        setOtherPayerId(nextOther ? nextOther.id : '');
+      }
+      return remaining;
+    });
+    markDirty();
   };
 
   // Validation
@@ -284,13 +422,13 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
       }
     }
 
-    if (!title.trim() && !merchant.trim()) {
-      newErrors.title = 'Please provide a title or merchant for this expense.';
+    if (!title.trim() && !item.trim() && !merchant.trim()) {
+      newErrors.title = 'Please provide an item name, description, or merchant for this expense.';
     }
 
     if (isSplit) {
       if (selectedParticipants.length < 2) {
-        newErrors.split = 'A split expense must have at least 2 selected participants.';
+        newErrors.split = 'A split expense requires at least 2 participants. Please add people below.';
       }
 
       if (totalPaise <= 0) {
@@ -327,7 +465,7 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
     setIsLoading(true);
 
     try {
-      const expenseTitle = title.trim() || merchant.trim() || 'Expense';
+      const expenseTitle = item.trim() || title.trim() || merchant.trim() || 'Expense';
 
       let splitPayload = undefined;
       if (isSplit) {
@@ -349,19 +487,37 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
         };
       }
 
-      const response = await expenseService.createExpense({
-        amount: parseFloat(amount),
-        title: expenseTitle,
-        category,
-        date,
-        time,
-        paymentMethod,
-        merchant: merchant.trim() || undefined,
-        notes: title.trim() ? title.trim() : undefined,
-        tags: tags.length > 0 ? tags : undefined,
-        isSplit,
-        splitDetails: splitPayload,
-      });
+      let response;
+      const existingId = expenseToEdit?.rawId || expenseToEdit?.id;
+      if (existingId) {
+        response = await expenseService.updateExpense(existingId, {
+          amount: parseFloat(amount),
+          title: expenseTitle,
+          category,
+          date,
+          time,
+          paymentMethod,
+          merchant: merchant.trim() || undefined,
+          item: item.trim() || undefined,
+          notes: title.trim() ? title.trim() : undefined,
+          isSplit,
+          splitDetails: splitPayload,
+        });
+      } else {
+        response = await expenseService.createExpense({
+          amount: parseFloat(amount),
+          title: expenseTitle,
+          category,
+          date,
+          time,
+          paymentMethod,
+          merchant: merchant.trim() || undefined,
+          item: item.trim() || undefined,
+          notes: title.trim() ? title.trim() : undefined,
+          isSplit,
+          splitDetails: splitPayload,
+        });
+      }
 
       const saved = response.data?.expense;
       if (saved) {
@@ -370,7 +526,7 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
         }
 
         if (shouldAddAnother) {
-          setSuccessBanner(`Saved ₹${saved.amountInRupees.toFixed(2)} for "${saved.title}". Ready for next.`);
+          setSuccessBanner(`Saved ₹${saved.amountInRupees.toFixed(2)} for "${saved.title}". Ready for next entry.`);
           resetForm();
           setTimeout(() => setSuccessBanner(null), 4000);
         } else {
@@ -416,21 +572,21 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="modal-title"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs transition-opacity"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs transition-opacity"
       onClick={(e) => {
         if (e.target === e.currentTarget) handleAttemptClose();
       }}
     >
-      {/* Modal Dialog Card */}
-      <div className="w-full max-w-[620px] max-h-[92vh] flex flex-col bg-white rounded-xl shadow-2xl border border-[#E1E6E1] overflow-hidden text-[#17211D]">
+      {/* Modal Dialog Card with Crisp, High-Contrast Borders */}
+      <div className="w-full max-w-[640px] max-h-[92vh] flex flex-col bg-white rounded-xl shadow-2xl border border-[#94A3B8]/60 overflow-hidden text-[#111827]">
         {/* Header */}
-        <div className="p-4 sm:px-6 sm:py-4 border-b border-[#E1E6E1] flex items-center justify-between shrink-0 bg-white">
-          <div className="flex items-center gap-2.5">
-            <h2 id="modal-title" className="text-xl font-bold tracking-tight text-[#17211D]">
-              Add New Expense
+        <div className="p-4 sm:px-6 sm:py-4.5 border-b border-[#CBD5E1] flex items-center justify-between shrink-0 bg-white">
+          <div className="flex items-center gap-3">
+            <h2 id="modal-title" className="text-xl sm:text-2xl font-bold tracking-tight text-[#111827]">
+              {expenseToEdit ? 'Edit Expense' : 'Add New Expense'}
             </h2>
-            <span className="text-[11px] font-bold tracking-wider text-[#064E3B] bg-[#E8F5EC] border border-[#C7E9D5] px-2 py-0.5 rounded-[4px] uppercase select-none">
-              JOURNAL DRAFT
+            <span className="text-xs font-bold tracking-wider text-[#064E3B] bg-[#E8F5EC] border border-[#A6DEC0] px-2.5 py-0.5 rounded-[4px] uppercase select-none">
+              {expenseToEdit ? 'EDIT RECORD' : 'JOURNAL DRAFT'}
             </span>
           </div>
 
@@ -438,7 +594,7 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
             type="button"
             onClick={handleAttemptClose}
             aria-label="Close modal"
-            className="p-1.5 text-[#66716B] hover:text-[#17211D] hover:bg-neutral-100 rounded-md transition-colors cursor-pointer"
+            className="p-1.5 text-[#4B5563] hover:text-[#111827] hover:bg-neutral-100 rounded-md transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>
@@ -450,11 +606,11 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
           {serverError && (
             <div
               role="alert"
-              className="p-3 bg-[#FDF2F2] border border-[#F3B7B7] rounded-md text-sm text-[#C24141] flex items-start gap-2.5"
+              className="p-3.5 bg-[#FDF2F2] border border-[#F3B7B7] rounded-lg text-sm text-[#C24141] flex items-start gap-2.5 font-medium"
             >
-              <AlertCircle className="w-4.5 h-4.5 shrink-0 mt-0.5 text-[#C24141]" />
+              <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-[#C24141]" />
               <div className="flex-1">
-                <p className="font-semibold">Unable to save expense</p>
+                <p className="font-bold text-[#991B1B]">Unable to save expense</p>
                 <p className="mt-0.5 text-[#66716B]">{serverError}</p>
               </div>
             </div>
@@ -464,10 +620,10 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
           {successBanner && (
             <div
               role="status"
-              className="p-3 bg-[#E8F5EC] border border-[#A6DEC0] rounded-md text-sm text-[#064E3B] flex items-center gap-2"
+              className="p-3.5 bg-[#E8F5EC] border border-[#A6DEC0] rounded-lg text-sm text-[#064E3B] flex items-center gap-2.5 font-semibold"
             >
-              <CheckCircle2 className="w-4.5 h-4.5 shrink-0 text-[#16A765]" />
-              <p className="font-medium">{successBanner}</p>
+              <CheckCircle2 className="w-5 h-5 shrink-0 text-[#16A765]" />
+              <p>{successBanner}</p>
             </div>
           )}
 
@@ -477,18 +633,18 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
             <div className="space-y-1.5">
               <label
                 htmlFor="expense-amount-input"
-                className="block text-[11px] font-bold text-[#66716B] tracking-wider uppercase"
+                className="block text-xs font-bold text-[#1F2937] tracking-wider uppercase"
               >
-                TOTAL AMOUNT (INR) <span className="text-[#C24141]">*</span>
+                TOTAL AMOUNT (INR) <span className="text-[#DC2626]">*</span>
               </label>
               <div
                 className={`flex items-baseline px-3.5 py-2.5 bg-white border rounded-lg transition-all focus-within:ring-1 ${
                   errors.amount
-                    ? 'border-[#C24141] focus-within:border-[#C24141] focus-within:ring-[#C24141]'
-                    : 'border-[#E1E6E1] focus-within:border-[#16A765] focus-within:ring-[#16A765]'
+                    ? 'border-[#DC2626] focus-within:border-[#DC2626] focus-within:ring-[#DC2626]'
+                    : 'border-[#CBD5E1] focus-within:border-[#064E3B] focus-within:ring-[#064E3B]'
                 }`}
               >
-                <span className="text-2xl font-bold text-[#17211D] mr-1.5 select-none font-mono">
+                <span className="text-2xl sm:text-3xl font-extrabold text-[#111827] mr-2 select-none font-mono">
                   ₹
                 </span>
                 <input
@@ -510,14 +666,14 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                     }
                   }}
                   placeholder="2,400.00"
-                  className="w-full text-2xl font-bold font-mono text-[#17211D] placeholder:text-neutral-300 focus:outline-none bg-transparent"
+                  className="w-full text-2xl sm:text-3xl font-extrabold font-mono text-[#111827] placeholder:text-neutral-400 focus:outline-none bg-transparent"
                 />
               </div>
-              <p className="text-xs text-[#66716B]">
+              <p className="text-xs font-medium text-[#4B5563]">
                 {isSplit ? 'Shared ledger split allocation' : 'Single ledger charge'}
               </p>
               {errors.amount && (
-                <p className="text-xs text-[#C24141] font-medium">{errors.amount}</p>
+                <p className="text-xs text-[#DC2626] font-bold">{errors.amount}</p>
               )}
             </div>
 
@@ -525,12 +681,12 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
             <div className="space-y-1.5">
               <label
                 htmlFor="expense-merchant-input"
-                className="block text-[11px] font-bold text-[#66716B] tracking-wider uppercase"
+                className="block text-xs font-bold text-[#1F2937] tracking-wider uppercase"
               >
                 MERCHANT OR PAYEE
               </label>
-              <div className="flex items-center gap-2 px-3.5 py-3 bg-white border border-[#E1E6E1] rounded-lg focus-within:border-[#16A765] focus-within:ring-1 focus-within:ring-[#16A765] transition-all">
-                <Store className="w-4 h-4 text-[#66716B] shrink-0" />
+              <div className="flex items-center gap-2.5 px-3.5 py-3 bg-white border border-[#CBD5E1] rounded-lg focus-within:border-[#064E3B] focus-within:ring-1 focus-within:ring-[#064E3B] transition-all">
+                <Store className="w-5 h-5 text-[#4B5563] shrink-0" />
                 <input
                   id="expense-merchant-input"
                   type="text"
@@ -541,11 +697,11 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                     setMerchant(e.target.value);
                     markDirty();
                   }}
-                  placeholder="e.g. The Fatty Bao"
-                  className="w-full text-base font-semibold text-[#17211D] placeholder:text-neutral-400 focus:outline-none bg-transparent"
+                  placeholder="e.g. The Fatty Bao, Grocery Mart"
+                  className="w-full text-sm sm:text-base font-semibold text-[#111827] placeholder:text-neutral-400 focus:outline-none bg-transparent"
                 />
               </div>
-              <p className="text-xs text-[#66716B]">Payee name or transaction party</p>
+              <p className="text-xs font-medium text-[#4B5563]">Payee name or transaction party</p>
             </div>
           </div>
 
@@ -555,12 +711,12 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
             <div className="space-y-1.5">
               <label
                 htmlFor="expense-date-input"
-                className="block text-[11px] font-bold text-[#66716B] tracking-wider uppercase"
+                className="block text-xs font-bold text-[#1F2937] tracking-wider uppercase"
               >
-                TRANSACTION TIMESTAMP
+                TRANSACTION DATE
               </label>
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-white border border-[#E1E6E1] rounded-lg focus-within:border-[#16A765] focus-within:ring-1 focus-within:ring-[#16A765]">
-                <Calendar className="w-4 h-4 text-[#66716B] shrink-0" />
+              <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-lg focus-within:border-[#064E3B] focus-within:ring-1 focus-within:ring-[#064E3B]">
+                <Calendar className="w-4 h-4 text-[#4B5563] shrink-0" />
                 <input
                   id="expense-date-input"
                   type="date"
@@ -570,7 +726,7 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                     setDate(e.target.value);
                     markDirty();
                   }}
-                  className="w-full text-xs font-medium text-[#17211D] bg-transparent focus:outline-none cursor-pointer"
+                  className="w-full text-sm font-semibold text-[#111827] bg-transparent focus:outline-none cursor-pointer"
                 />
               </div>
             </div>
@@ -579,12 +735,12 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
             <div className="space-y-1.5">
               <label
                 htmlFor="expense-category-select"
-                className="block text-[11px] font-bold text-[#66716B] tracking-wider uppercase"
+                className="block text-xs font-bold text-[#1F2937] tracking-wider uppercase"
               >
-                CATEGORY CLASSIFICATION
+                CATEGORY
               </label>
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-white border border-[#E1E6E1] rounded-lg focus-within:border-[#16A765] focus-within:ring-1 focus-within:ring-[#16A765]">
-                <Utensils className="w-4 h-4 text-[#66716B] shrink-0" />
+              <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-lg focus-within:border-[#064E3B] focus-within:ring-1 focus-within:ring-[#064E3B]">
+                <Utensils className="w-4 h-4 text-[#4B5563] shrink-0" />
                 <select
                   id="expense-category-select"
                   disabled={isLoading}
@@ -593,7 +749,7 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                     setCategory(e.target.value as ExpenseCategory);
                     markDirty();
                   }}
-                  className="w-full text-xs font-medium text-[#17211D] bg-transparent focus:outline-none cursor-pointer"
+                  className="w-full text-sm font-semibold text-[#111827] bg-transparent focus:outline-none cursor-pointer"
                 >
                   {EXPENSE_CATEGORIES.map((cat) => (
                     <option key={cat} value={cat}>
@@ -608,12 +764,12 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
             <div className="space-y-1.5">
               <label
                 htmlFor="expense-source-select"
-                className="block text-[11px] font-bold text-[#66716B] tracking-wider uppercase"
+                className="block text-xs font-bold text-[#1F2937] tracking-wider uppercase"
               >
-                SOURCE ACCOUNT
+                PAYMENT METHOD
               </label>
-              <div className="flex items-center gap-2 px-3 py-2.5 bg-white border border-[#E1E6E1] rounded-lg focus-within:border-[#16A765] focus-within:ring-1 focus-within:ring-[#16A765]">
-                <CreditCard className="w-4 h-4 text-[#66716B] shrink-0" />
+              <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-lg focus-within:border-[#064E3B] focus-within:ring-1 focus-within:ring-[#064E3B]">
+                <CreditCard className="w-4 h-4 text-[#4B5563] shrink-0" />
                 <select
                   id="expense-source-select"
                   disabled={isLoading}
@@ -622,7 +778,7 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                     setPaymentMethod(e.target.value as PaymentMethod);
                     markDirty();
                   }}
-                  className="w-full text-xs font-medium text-[#17211D] bg-transparent focus:outline-none cursor-pointer"
+                  className="w-full text-sm font-semibold text-[#111827] bg-transparent focus:outline-none cursor-pointer"
                 >
                   {PAYMENT_METHODS.map((pm) => (
                     <option key={pm} value={pm}>
@@ -634,15 +790,44 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
             </div>
           </div>
 
-          {/* Row 3: Description & Accounting Tags */}
+          {/* Row 3: Item Spent On & Notes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Specific Item Spent On (Replacing Tags for AI spending analysis & suggestions) */}
+            <div className="space-y-1.5">
+              <label
+                htmlFor="expense-item-input"
+                className="block text-xs font-bold text-[#1F2937] tracking-wider uppercase"
+              >
+                ITEM OR PRODUCT SPENT ON
+              </label>
+              <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-lg focus-within:border-[#064E3B] focus-within:ring-1 focus-within:ring-[#064E3B] transition-all">
+                <ShoppingBag className="w-4.5 h-4.5 text-[#4B5563] shrink-0" />
+                <input
+                  id="expense-item-input"
+                  type="text"
+                  maxLength={100}
+                  disabled={isLoading}
+                  value={item}
+                  onChange={(e) => {
+                    setItem(e.target.value);
+                    markDirty();
+                  }}
+                  placeholder="e.g. Burger, Chips, Coffee, Groceries"
+                  className="w-full text-sm font-semibold text-[#111827] placeholder:text-neutral-400 focus:outline-none bg-transparent"
+                />
+              </div>
+              <p className="text-xs font-medium text-[#4B5563]">
+                Specific item purchased (used for spending analysis and suggestions)
+              </p>
+            </div>
+
             {/* Description & Notes */}
             <div className="space-y-1.5">
               <label
                 htmlFor="expense-description-input"
-                className="block text-[11px] font-bold text-[#66716B] tracking-wider uppercase"
+                className="block text-xs font-bold text-[#1F2937] tracking-wider uppercase"
               >
-                DESCRIPTION & NOTES
+                DESCRIPTION OR NOTES
               </label>
               <input
                 id="expense-description-input"
@@ -661,81 +846,20 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                     });
                   }
                 }}
-                placeholder="Dinner with college friends"
-                className="w-full px-3.5 py-2.5 text-sm text-[#17211D] placeholder:text-neutral-400 bg-white border border-[#E1E6E1] rounded-lg focus:outline-none focus:border-[#16A765] focus:ring-1 focus:ring-[#16A765]"
+                placeholder="e.g. Dinner with college friends"
+                className="w-full h-11 px-3.5 text-sm font-semibold text-[#111827] placeholder:text-neutral-400 bg-white border border-[#CBD5E1] rounded-lg focus:outline-none focus:border-[#064E3B] focus:ring-1 focus:ring-[#064E3B]"
               />
+              <p className="text-xs font-medium text-[#4B5563]">
+                General notes or context about this expense
+              </p>
               {errors.title && (
-                <p className="text-xs text-[#C24141] font-medium">{errors.title}</p>
+                <p className="text-xs text-[#DC2626] font-bold">{errors.title}</p>
               )}
-            </div>
-
-            {/* Accounting Tags */}
-            <div className="space-y-1.5">
-              <label className="block text-[11px] font-bold text-[#66716B] tracking-wider uppercase">
-                ACCOUNTING TAGS
-              </label>
-              <div className="flex flex-wrap items-center gap-2 min-h-[42px] p-1.5 bg-white border border-[#E1E6E1] rounded-lg">
-                {tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-[#064E3B] bg-[#E8F5EC] border border-[#C7E9D5] rounded"
-                  >
-                    {tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTag(tag)}
-                      className="text-[#064E3B]/70 hover:text-[#C24141] ml-0.5 cursor-pointer"
-                      title="Remove tag"
-                    >
-                      &times;
-                    </button>
-                  </span>
-                ))}
-
-                {isAddingTag ? (
-                  <div className="inline-flex items-center gap-1">
-                    <input
-                      type="text"
-                      autoFocus
-                      maxLength={20}
-                      value={newTagInput}
-                      onChange={(e) => setNewTagInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          e.preventDefault();
-                          handleAddTag();
-                        } else if (e.key === 'Escape') {
-                          setIsAddingTag(false);
-                          setNewTagInput('');
-                        }
-                      }}
-                      placeholder="tag"
-                      className="w-20 px-1.5 py-0.5 text-xs border border-[#16A765] rounded focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddTag}
-                      className="text-xs text-[#064E3B] font-semibold hover:underline"
-                    >
-                      Add
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => setIsAddingTag(true)}
-                    className="inline-flex items-center gap-1 text-xs font-semibold text-[#66716B] hover:text-[#064E3B] px-2 py-1 rounded transition-colors cursor-pointer"
-                  >
-                    <Plus className="w-3 h-3" />
-                    <span>ADD TAG</span>
-                  </button>
-                )}
-              </div>
             </div>
           </div>
 
-          {/* Mandatory Split Section */}
-          <div className="bg-[#F0F7F2] border border-[#D1EAD9] rounded-xl p-4 sm:p-5 space-y-4">
+          {/* Split Section with Darker, High-Contrast Borders */}
+          <div className="bg-[#F0F7F2] border border-[#A7D7B9] rounded-xl p-4 sm:p-5 space-y-4">
             {/* Split Toggle Header */}
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -748,27 +872,27 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                     markDirty();
                   }}
                   className={`w-11 h-6 rounded-full relative transition-colors focus:outline-none cursor-pointer ${
-                    isSplit ? 'bg-[#064E3B]' : 'bg-[#D1D9D3]'
+                    isSplit ? 'bg-[#064E3B]' : 'bg-[#94A3B8]'
                   }`}
                 >
                   <span
-                    className={`block w-4.5 h-4.5 bg-white rounded-full shadow-xs transform transition-transform absolute top-0.75 ${
+                    className={`block w-4.5 h-4.5 bg-white rounded-full shadow-sm transform transition-transform absolute top-0.75 ${
                       isSplit ? 'translate-x-5.5' : 'translate-x-1'
                     }`}
                   />
                 </button>
                 <div>
-                  <p className="font-bold text-sm text-[#17211D]">
+                  <p className="font-bold text-sm text-[#111827]">
                     Split this expense with others
                   </p>
-                  <p className="text-xs text-[#526359]">
+                  <p className="text-xs font-medium text-[#4B5563]">
                     Divide balance and allocate ledger debt receivables automatically
                   </p>
                 </div>
               </div>
 
               {isSplit && (
-                <span className="hidden sm:inline-block text-[11px] font-bold text-[#064E3B] bg-white border border-[#C1DFCD] px-2.5 py-1 rounded-[4px] uppercase tracking-wide">
+                <span className="hidden sm:inline-block text-xs font-bold text-[#064E3B] bg-white border border-[#A6DEC0] px-3 py-1 rounded-[4px] uppercase tracking-wide">
                   Shared Ledger Active
                 </span>
               )}
@@ -776,24 +900,24 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
 
             {/* Split Details Body */}
             {isSplit && (
-              <div className="space-y-4 pt-2 border-t border-[#D9ECE0]">
+              <div className="space-y-4 pt-3 border-t border-[#A7D7B9]">
                 {/* Payer Selection */}
                 <div className="space-y-2">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <span className="text-xs font-semibold text-[#17211D]">
+                    <span className="text-xs font-bold text-[#1F2937] uppercase tracking-wider">
                       Who paid up front?
                     </span>
-                    <div className="inline-flex p-0.5 bg-white border border-[#CDE5D6] rounded-md">
+                    <div className="inline-flex p-0.5 bg-white border border-[#CBD5E1] rounded-lg">
                       <button
                         type="button"
                         onClick={() => {
                           setPayerType('YOU');
                           markDirty();
                         }}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded transition-colors cursor-pointer ${
+                        className={`px-3.5 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
                           payerType === 'YOU'
                             ? 'bg-[#064E3B] text-white shadow-xs'
-                            : 'text-[#526359] hover:text-[#17211D]'
+                            : 'text-[#4B5563] hover:text-[#111827]'
                         }`}
                       >
                         You paid the full amount {totalPaise > 0 ? `(₹${(totalPaise / 100).toFixed(2)})` : ''}
@@ -804,10 +928,10 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                           setPayerType('OTHER');
                           markDirty();
                         }}
-                        className={`px-3 py-1.5 text-xs font-semibold rounded transition-colors cursor-pointer ${
+                        className={`px-3.5 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
                           payerType === 'OTHER'
                             ? 'bg-[#064E3B] text-white shadow-xs'
-                            : 'text-[#526359] hover:text-[#17211D]'
+                            : 'text-[#4B5563] hover:text-[#111827]'
                         }`}
                       >
                         Someone else paid
@@ -816,31 +940,37 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                   </div>
 
                   {payerType === 'OTHER' && (
-                    <div className="flex items-center gap-2 p-2.5 bg-white border border-[#CDE5D6] rounded-lg text-xs">
-                      <span className="font-medium text-[#526359]">Select Payer:</span>
-                      <select
-                        value={otherPayerId}
-                        onChange={(e) => {
-                          setOtherPayerId(e.target.value);
-                          markDirty();
-                        }}
-                        className="flex-1 p-1 font-semibold text-[#17211D] bg-neutral-50 border border-[#E1E6E1] rounded focus:outline-none"
-                      >
-                        {participants
-                          .filter((p) => !p.isCurrentUser)
-                          .map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}
-                            </option>
-                          ))}
-                      </select>
+                    <div className="flex items-center gap-2.5 p-3 bg-white border border-[#CBD5E1] rounded-lg text-sm">
+                      <span className="font-bold text-[#1F2937]">Select Payer:</span>
+                      {participants.filter((p) => !p.isCurrentUser).length > 0 ? (
+                        <select
+                          value={otherPayerId}
+                          onChange={(e) => {
+                            setOtherPayerId(e.target.value);
+                            markDirty();
+                          }}
+                          className="flex-1 p-1.5 font-bold text-[#111827] bg-neutral-50 border border-[#CBD5E1] rounded-md focus:outline-none"
+                        >
+                          {participants
+                            .filter((p) => !p.isCurrentUser)
+                            .map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                        </select>
+                      ) : (
+                        <span className="text-xs font-medium text-[#DC2626]">
+                          Add at least one person below to select them as payer.
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
 
                 {/* Allocation Rule Selection */}
                 <div className="space-y-1.5">
-                  <label className="block text-[11px] font-bold text-[#526359] tracking-wider uppercase">
+                  <label className="block text-xs font-bold text-[#1F2937] tracking-wider uppercase">
                     ALLOCATION RULE
                   </label>
                   <div className="grid grid-cols-3 gap-2">
@@ -850,10 +980,10 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                         setAllocationRule('EQUAL');
                         markDirty();
                       }}
-                      className={`py-2 text-xs font-semibold rounded-md transition-colors cursor-pointer border ${
+                      className={`py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer border ${
                         allocationRule === 'EQUAL'
                           ? 'bg-[#064E3B] text-white border-[#064E3B] shadow-xs'
-                          : 'bg-white text-[#526359] border-[#CDE5D6] hover:bg-[#E8F4EC]'
+                          : 'bg-white text-[#374151] border-[#CBD5E1] hover:bg-[#E8F4EC]'
                       }`}
                     >
                       Equal Split
@@ -864,10 +994,10 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                         setAllocationRule('CUSTOM');
                         markDirty();
                       }}
-                      className={`py-2 text-xs font-semibold rounded-md transition-colors cursor-pointer border ${
+                      className={`py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer border ${
                         allocationRule === 'CUSTOM'
                           ? 'bg-[#064E3B] text-white border-[#064E3B] shadow-xs'
-                          : 'bg-white text-[#526359] border-[#CDE5D6] hover:bg-[#E8F4EC]'
+                          : 'bg-white text-[#374151] border-[#CBD5E1] hover:bg-[#E8F4EC]'
                       }`}
                     >
                       Custom / Unequal Split
@@ -878,10 +1008,10 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                         setAllocationRule('PERCENTAGE');
                         markDirty();
                       }}
-                      className={`py-2 text-xs font-semibold rounded-md transition-colors cursor-pointer border ${
+                      className={`py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer border ${
                         allocationRule === 'PERCENTAGE'
                           ? 'bg-[#064E3B] text-white border-[#064E3B] shadow-xs'
-                          : 'bg-white text-[#526359] border-[#CDE5D6] hover:bg-[#E8F4EC]'
+                          : 'bg-white text-[#374151] border-[#CBD5E1] hover:bg-[#E8F4EC]'
                       }`}
                     >
                       Percentages
@@ -891,10 +1021,22 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
 
                 {/* Participant Table */}
                 <div className="space-y-2">
-                  <div className="flex items-center justify-between py-1 border-b border-[#D1EAD9] text-[11px] font-bold text-[#526359] tracking-wider uppercase">
-                    <span>PARTICIPANT</span>
+                  <div className="flex items-center justify-between py-1 border-b border-[#A7D7B9] text-xs font-bold text-[#1F2937] tracking-wider uppercase">
+                    <span>PARTICIPANTS</span>
                     <span>INDIVIDUAL SHARE</span>
                   </div>
+
+                  {/* Empty state when only current user is in split */}
+                  {participants.length === 1 && (
+                    <div className="p-3 bg-white border border-[#CBD5E1] rounded-lg text-center space-y-1">
+                      <p className="text-xs font-bold text-[#111827]">
+                        No other people added to this split yet.
+                      </p>
+                      <p className="text-xs text-[#4B5563]">
+                        Use "+ Add Person to Split" below to add friends or participants.
+                      </p>
+                    </div>
+                  )}
 
                   <div className="space-y-2.5">
                     {participants.map((p) => {
@@ -904,10 +1046,10 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                       return (
                         <div
                           key={p.id}
-                          className={`flex items-center justify-between p-2.5 rounded-lg border transition-colors ${
+                          className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
                             p.selected
-                              ? 'bg-white border-[#CDE5D6]'
-                              : 'bg-neutral-50/70 border-transparent opacity-60'
+                              ? 'bg-white border-[#94A3B8]'
+                              : 'bg-neutral-50/70 border-neutral-200 opacity-60'
                           }`}
                         >
                           {/* Left: Checkbox + Avatar + Name */}
@@ -916,22 +1058,22 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                               type="checkbox"
                               checked={p.selected}
                               onChange={() => handleToggleParticipant(p.id)}
-                              className="w-4 h-4 text-[#064E3B] accent-[#064E3B] rounded cursor-pointer"
+                              className="w-4.5 h-4.5 text-[#064E3B] accent-[#064E3B] rounded cursor-pointer"
                             />
                             <div
-                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
+                              className={`w-8.5 h-8.5 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0 ${
                                 p.isCurrentUser
-                                  ? 'bg-[#16A765] text-white'
-                                  : 'bg-[#526359] text-white'
+                                  ? 'bg-[#064E3B] text-white'
+                                  : 'bg-[#4B5563] text-white'
                               }`}
                             >
                               {getInitials(p.name)}
                             </div>
                             <div>
-                              <p className="text-sm font-semibold text-[#17211D]">
+                              <p className="text-sm font-bold text-[#111827]">
                                 {p.name}
                               </p>
-                              <p className="text-[11px] text-[#66716B]">
+                              <p className="text-xs font-medium text-[#4B5563]">
                                 {p.isCurrentUser
                                   ? 'Settles automatically from primary account'
                                   : payerType === 'YOU'
@@ -940,66 +1082,102 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                                   ? 'Paid upfront'
                                   : 'Shared participant'}
                               </p>
+                              {!p.isCurrentUser && (() => {
+                                const finalInfo = participantFinalForms.find((f) => f.id === p.id);
+                                if (!finalInfo) return null;
+                                return (
+                                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+                                    {finalInfo.hasPreviousDebt ? (
+                                      <span className="text-[#6B7280]">
+                                        Current:{' '}
+                                        {finalInfo.previousNet > 0
+                                          ? `owes ₹${finalInfo.previousNet.toFixed(2)}`
+                                          : `you owe ₹${Math.abs(finalInfo.previousNet).toFixed(2)}`}
+                                      </span>
+                                    ) : (
+                                      <span className="text-[#6B7280]">Current: ₹0.00</span>
+                                    )}
+                                    <span className="text-[#9CA3AF]">→</span>
+                                    <span
+                                      className={`font-semibold px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
+                                        finalInfo.isSettled
+                                          ? 'bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]'
+                                          : finalInfo.projectedNet > 0
+                                          ? 'bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE]'
+                                          : 'bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA]'
+                                      }`}
+                                    >
+                                      {finalInfo.isSettled
+                                        ? 'Final: All settled up (₹0.00)'
+                                        : finalInfo.projectedNet > 0
+                                        ? `Final: Owes you ₹${finalInfo.projectedNet.toFixed(2)}`
+                                        : `Final: You owe ₹${Math.abs(finalInfo.projectedNet).toFixed(2)}`}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </div>
 
                           {/* Right: Share Controls */}
-                          <div className="text-right">
-                            {allocationRule === 'EQUAL' && (
-                              <div>
-                                <p className="text-sm font-bold font-mono text-[#17211D]">
-                                  ₹ {p.selected ? shareRupees.toFixed(2) : '0.00'}
-                                </p>
-                                <p className="text-[10px] text-[#66716B]">
-                                  {p.isCurrentUser ? 'Your cost' : 'Calculated share'}
-                                </p>
-                              </div>
-                            )}
+                          <div className="flex items-center gap-2">
+                            <div className="text-right">
+                              {allocationRule === 'EQUAL' && (
+                                <div>
+                                  <p className="text-base font-extrabold font-mono text-[#111827]">
+                                    ₹ {p.selected ? shareRupees.toFixed(2) : '0.00'}
+                                  </p>
+                                  <p className="text-[11px] font-medium text-[#4B5563]">
+                                    {p.isCurrentUser ? 'Your cost' : 'Calculated share'}
+                                  </p>
+                                </div>
+                              )}
 
-                            {allocationRule === 'CUSTOM' && (
-                              <div className="flex items-center gap-1.5">
-                                <span className="text-xs font-mono font-bold text-[#66716B]">₹</span>
-                                <input
-                                  type="number"
-                                  step="0.01"
-                                  disabled={!p.selected}
-                                  value={p.customRupees}
-                                  onChange={(e) => handleCustomRupeesChange(p.id, e.target.value)}
-                                  placeholder={p.selected ? '0.00' : '-'}
-                                  className="w-24 px-2 py-1 text-sm font-mono font-bold text-right text-[#17211D] bg-white border border-[#CDE5D6] rounded focus:outline-none focus:border-[#16A765]"
-                                />
-                              </div>
-                            )}
-
-                            {allocationRule === 'PERCENTAGE' && (
-                              <div className="flex items-center gap-2">
-                                <div className="flex items-center gap-1">
+                              {allocationRule === 'CUSTOM' && (
+                                <div className="flex items-center gap-1.5">
+                                  <span className="text-sm font-mono font-bold text-[#111827]">₹</span>
                                   <input
                                     type="number"
-                                    step="0.1"
+                                    step="0.01"
                                     disabled={!p.selected}
-                                    value={p.percentage}
-                                    onChange={(e) => handlePercentageChange(p.id, e.target.value)}
-                                    placeholder="0"
-                                    className="w-16 px-2 py-1 text-xs font-mono font-bold text-right text-[#17211D] bg-white border border-[#CDE5D6] rounded focus:outline-none focus:border-[#16A765]"
+                                    value={p.customRupees}
+                                    onChange={(e) => handleCustomRupeesChange(p.id, e.target.value)}
+                                    placeholder={p.selected ? '0.00' : '-'}
+                                    className="w-24 px-2 py-1 text-sm font-mono font-bold text-right text-[#111827] bg-white border border-[#94A3B8] rounded-md focus:outline-none focus:border-[#064E3B]"
                                   />
-                                  <span className="text-xs text-[#66716B] font-semibold">%</span>
                                 </div>
-                                <span className="text-xs font-mono font-bold text-[#17211D] min-w-[65px] text-right">
-                                  ₹ {shareRupees.toFixed(2)}
-                                </span>
-                              </div>
-                            )}
+                              )}
+
+                              {allocationRule === 'PERCENTAGE' && (
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      step="0.1"
+                                      disabled={!p.selected}
+                                      value={p.percentage}
+                                      onChange={(e) => handlePercentageChange(p.id, e.target.value)}
+                                      placeholder="0"
+                                      className="w-16 px-2 py-1 text-xs font-mono font-bold text-right text-[#111827] bg-white border border-[#94A3B8] rounded-md focus:outline-none focus:border-[#064E3B]"
+                                    />
+                                    <span className="text-xs text-[#1F2937] font-bold">%</span>
+                                  </div>
+                                  <span className="text-sm font-mono font-bold text-[#111827] min-w-[70px] text-right">
+                                    ₹ {shareRupees.toFixed(2)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
 
                             {/* Remove participant button for added persons */}
-                            {!p.isCurrentUser && participants.length > 2 && (
+                            {!p.isCurrentUser && (
                               <button
                                 type="button"
                                 onClick={() => handleRemovePerson(p.id)}
-                                className="text-neutral-400 hover:text-[#C24141] p-1 rounded transition-colors cursor-pointer inline-flex items-center ml-2"
+                                className="text-neutral-400 hover:text-[#DC2626] p-1.5 rounded transition-colors cursor-pointer"
                                 title="Remove participant"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             )}
                           </div>
@@ -1009,52 +1187,88 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                   </div>
 
                   {/* Add Person Inline Control */}
-                  <div className="pt-2 flex items-center justify-between">
+                  <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                     {isAddingPerson ? (
-                      <div className="flex items-center gap-2 w-full">
-                        <input
-                          type="text"
-                          autoFocus
-                          maxLength={50}
-                          value={newPersonName}
-                          onChange={(e) => setNewPersonName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleAddPerson();
-                            } else if (e.key === 'Escape') {
+                      <div className="space-y-2.5 w-full p-3 bg-white border border-[#CBD5E1] rounded-lg shadow-2xs">
+                        {/* Saved people from Peoples section show up ONLY after clicking + Add Person */}
+                        {savedPeople.filter(
+                          (sp) =>
+                            !participants.some(
+                              (p) => p.name.toLowerCase().trim() === sp.name.toLowerCase().trim()
+                            )
+                        ).length > 0 && (
+                          <div className="space-y-1.5 pb-2 border-b border-[#F1F5F9]">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-[#4B5563]">
+                              Saved People (click to add):
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {savedPeople
+                                .filter(
+                                  (sp) =>
+                                    !participants.some(
+                                      (p) => p.name.toLowerCase().trim() === sp.name.toLowerCase().trim()
+                                    )
+                                )
+                                .map((person) => (
+                                  <button
+                                    key={person.id}
+                                    type="button"
+                                    onClick={() => handleAddPerson(person.name)}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-semibold rounded-md bg-[#E8F3EE] hover:bg-[#D5EADB] text-[#064E3B] border border-[#A7D7B9] transition-colors cursor-pointer"
+                                  >
+                                    <UserPlus className="w-3.5 h-3.5" />
+                                    <span>{person.name}</span>
+                                  </button>
+                                ))}
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 w-full">
+                          <input
+                            type="text"
+                            autoFocus
+                            maxLength={50}
+                            value={newPersonName}
+                            onChange={(e) => setNewPersonName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddPerson();
+                              } else if (e.key === 'Escape') {
+                                setIsAddingPerson(false);
+                                setNewPersonName('');
+                              }
+                            }}
+                            placeholder="Or enter a new person name..."
+                            className="flex-1 px-3 py-1.5 text-sm font-semibold text-[#111827] border border-[#CBD5E1] rounded-lg focus:outline-none focus:border-[#064E3B] bg-white shadow-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleAddPerson()}
+                            className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#064E3B] rounded-lg hover:bg-[#04392B] cursor-pointer"
+                          >
+                            Add
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
                               setIsAddingPerson(false);
                               setNewPersonName('');
-                            }
-                          }}
-                          placeholder="Enter person name"
-                          className="flex-1 px-3 py-1.5 text-xs border border-[#16A765] rounded-md focus:outline-none bg-white"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddPerson}
-                          className="px-3 py-1.5 text-xs font-semibold text-white bg-[#064E3B] rounded-md hover:bg-[#04392B] cursor-pointer"
-                        >
-                          Add
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsAddingPerson(false);
-                            setNewPersonName('');
-                          }}
-                          className="px-2 py-1.5 text-xs text-[#66716B] hover:text-[#17211D] cursor-pointer"
-                        >
-                          Cancel
-                        </button>
+                            }}
+                            className="px-2.5 py-1.5 text-xs font-semibold text-[#4B5563] hover:text-[#111827] cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <button
                         type="button"
                         onClick={() => setIsAddingPerson(true)}
-                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#064E3B] hover:underline cursor-pointer"
+                        className="inline-flex items-center gap-1.5 text-xs font-bold text-[#064E3B] hover:underline cursor-pointer"
                       >
-                        <UserPlus className="w-3.5 h-3.5" />
+                        <UserPlus className="w-4 h-4" />
                         <span>+ Add Person to Split</span>
                       </button>
                     )}
@@ -1062,10 +1276,10 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                     {/* Balance Indicator for Custom / Percentage */}
                     {allocationRule === 'CUSTOM' && totalPaise > 0 && (
                       <span
-                        className={`text-xs font-mono font-semibold ${
+                        className={`text-xs font-mono font-bold ${
                           allocationDifferencePaise === 0
                             ? 'text-[#064E3B]'
-                            : 'text-[#C24141]'
+                            : 'text-[#DC2626]'
                         }`}
                       >
                         {allocationDifferencePaise === 0
@@ -1078,10 +1292,10 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
 
                     {allocationRule === 'PERCENTAGE' && (
                       <span
-                        className={`text-xs font-mono font-semibold ${
+                        className={`text-xs font-mono font-bold ${
                           Math.abs(totalPercentage - 100) < 0.01
                             ? 'text-[#064E3B]'
-                            : 'text-[#C24141]'
+                            : 'text-[#DC2626]'
                         }`}
                       >
                         Total: {totalPercentage.toFixed(1)}% / 100%
@@ -1089,8 +1303,53 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                     )}
                   </div>
 
+                  {/* Live Final Ledger Standing Preview for all participants */}
+                  {participantFinalForms.length > 0 && totalPaise > 0 && (
+                    <div className="p-3.5 bg-[#F8FAF9] border border-[#CBD5E1] rounded-xl space-y-2 shadow-2xs">
+                      <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-[#1F2937]">
+                        <ShieldCheck className="w-4 h-4 text-[#064E3B]" />
+                        <span>Final Ledger Standing Preview</span>
+                      </div>
+                      <div className="space-y-1.5 pt-1 border-t border-[#E2E8F0]">
+                        {participantFinalForms.map((item) => (
+                          <div
+                            key={item.id}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between text-xs py-1 border-b border-[#F1F5F9] last:border-0 gap-1"
+                          >
+                            <span className="font-semibold text-[#111827]">{item.name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[#6B7280] font-mono text-[11px]">
+                                {item.hasPreviousDebt
+                                  ? item.previousNet > 0
+                                    ? `Previous due: ₹${item.previousNet.toFixed(2)}`
+                                    : `Previous liability: ₹${Math.abs(item.previousNet).toFixed(2)}`
+                                  : 'Previous: ₹0.00'}
+                              </span>
+                              <span className="text-[#9CA3AF]">→</span>
+                              <span
+                                className={`font-mono font-bold text-xs ${
+                                  item.isSettled
+                                    ? 'text-[#064E3B]'
+                                    : item.projectedNet > 0
+                                    ? 'text-[#059669]'
+                                    : 'text-[#DC2626]'
+                                }`}
+                              >
+                                {item.isSettled
+                                  ? 'All settled up (₹0.00)'
+                                  : item.projectedNet > 0
+                                  ? `Owes you ₹${item.projectedNet.toFixed(2)}`
+                                  : `You owe ₹${Math.abs(item.projectedNet).toFixed(2)}`}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {errors.split && (
-                    <p className="text-xs text-[#C24141] font-medium pt-1">
+                    <p className="text-xs text-[#DC2626] font-bold pt-1">
                       {errors.split}
                     </p>
                   )}
@@ -1101,31 +1360,33 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 sm:px-6 sm:py-3.5 bg-white border-t border-[#E1E6E1] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        <div className="p-4 sm:px-6 sm:py-3.5 bg-white border-t border-[#CBD5E1] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
           <button
             type="button"
             onClick={handleAttemptClose}
             disabled={isLoading}
-            className="w-full sm:w-auto text-sm font-semibold text-[#66716B] hover:text-[#17211D] px-3 py-2 rounded-md hover:bg-neutral-100 transition-colors cursor-pointer disabled:opacity-50"
+            className="w-full sm:w-auto text-sm font-bold text-[#4B5563] hover:text-[#111827] px-4 py-2.5 rounded-lg hover:bg-neutral-100 transition-colors cursor-pointer disabled:opacity-50"
           >
             Cancel
           </button>
 
           <div className="flex items-center gap-2.5 w-full sm:w-auto">
-            <button
-              type="button"
-              onClick={() => handleSubmit(true)}
-              disabled={isLoading}
-              className="w-full sm:w-auto px-4 py-2 text-sm font-semibold text-[#064E3B] bg-[#F4F9F5] border border-[#CDE5D6] hover:bg-[#E8F4EC] rounded-md transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
-            >
-              Save and Add Another
-            </button>
+            {!expenseToEdit && (
+              <button
+                type="button"
+                onClick={() => handleSubmit(true)}
+                disabled={isLoading}
+                className="w-full sm:w-auto px-4 py-2.5 text-sm font-bold text-[#064E3B] bg-white border border-[#064E3B] hover:bg-[#F0FDF4] rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                Save and Add Another
+              </button>
+            )}
 
             <button
               type="button"
               onClick={() => handleSubmit(false)}
               disabled={isLoading}
-              className="w-full sm:w-auto px-5 py-2 text-sm font-semibold text-white bg-[#064E3B] hover:bg-[#04392B] rounded-md transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+              className="w-full sm:w-auto px-6 py-2.5 text-sm font-bold text-white bg-[#064E3B] hover:bg-[#04392B] rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
             >
               {isLoading ? (
                 <>
@@ -1134,8 +1395,8 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                 </>
               ) : (
                 <>
-                  <Check className="w-4 h-4" />
-                  <span>Save Expense</span>
+                  <Check className="w-4.5 h-4.5" />
+                  <span>{expenseToEdit ? 'Save Changes' : 'Save Expense'}</span>
                 </>
               )}
             </button>
@@ -1148,27 +1409,27 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
         <div
           role="alertdialog"
           aria-labelledby="discard-title"
-          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/40"
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/50"
         >
-          <div className="bg-white border border-[#E1E6E1] rounded-lg shadow-xl p-6 max-w-sm w-full space-y-4">
-            <h3 id="discard-title" className="text-lg font-bold text-[#17211D]">
+          <div className="bg-white border border-[#94A3B8] rounded-xl shadow-2xl p-6 max-w-sm w-full space-y-4">
+            <h3 id="discard-title" className="text-lg font-bold text-[#111827]">
               Discard unsaved changes?
             </h3>
-            <p className="text-sm text-[#66716B]">
+            <p className="text-sm font-medium text-[#4B5563]">
               You have unsaved changes in this expense form. Discarding will lose these changes.
             </p>
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={() => setShowDiscardConfirm(false)}
-                className="px-3.5 py-1.5 text-xs font-semibold text-[#66716B] hover:text-[#17211D] hover:bg-neutral-100 rounded-md transition-colors cursor-pointer"
+                className="px-3.5 py-2 text-xs font-bold text-[#4B5563] hover:text-[#111827] hover:bg-neutral-100 rounded-lg transition-colors cursor-pointer"
               >
                 Keep Editing
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDiscard}
-                className="px-3.5 py-1.5 text-xs font-semibold text-white bg-[#C24141] hover:bg-[#A93232] rounded-md transition-colors cursor-pointer"
+                className="px-4 py-2 text-xs font-bold text-white bg-[#DC2626] hover:bg-[#B91C1C] rounded-lg transition-colors cursor-pointer"
               >
                 Discard Changes
               </button>

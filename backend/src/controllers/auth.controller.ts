@@ -261,6 +261,22 @@ export const signIn = async (req: Request, res: Response, next: NextFunction): P
   }
 };
 
+// Purge any expired reset password codes from MongoDB
+export const purgeExpiredResetCodes = async (): Promise<void> => {
+  try {
+    await User.updateMany(
+      {
+        resetPasswordExpires: { $ne: null, $lt: new Date() },
+      },
+      {
+        $set: { resetPasswordCode: null, resetPasswordExpires: null },
+      }
+    );
+  } catch (err) {
+    console.error('[Auth] Error purging expired password reset codes:', err);
+  }
+};
+
 export const forgotPassword = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { email } = req.body;
@@ -269,14 +285,30 @@ export const forgotPassword = async (req: Request, res: Response, next: NextFunc
       throw new AppError('Email address is required.', 400);
     }
 
+    // Clean up any previously expired codes
+    await purgeExpiredResetCodes();
+
     const normalizedEmail = email.trim().toLowerCase();
     const user = await User.findOne({ email: normalizedEmail });
 
     if (user) {
       const resetCode = crypto.randomInt(100000, 1000000).toString();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
       user.resetPasswordCode = resetCode;
-      user.resetPasswordExpires = new Date(Date.now() + 15 * 60 * 1000);
+      user.resetPasswordExpires = expiresAt;
       await user.save();
+
+      // Ensure the reset OTP is deleted from the backend after 15 minutes if not used
+      setTimeout(async () => {
+        try {
+          await User.updateOne(
+            { _id: user._id, resetPasswordCode: resetCode },
+            { $set: { resetPasswordCode: null, resetPasswordExpires: null } }
+          );
+        } catch (timerErr) {
+          console.error('[Auth] Error clearing 15-minute expired reset OTP:', timerErr);
+        }
+      }, 15 * 60 * 1000);
 
       await sendPasswordResetEmail({
         toEmail: user.email,

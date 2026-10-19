@@ -43,8 +43,8 @@ export interface IExpense extends Document {
   time?: string | null;
   paymentMethod?: PaymentMethod | null;
   merchant?: string | null;
+  item?: string | null;
   notes?: string | null;
-  tags?: string[];
   isSplit: boolean;
   splitDetails?: ISplitDetails | null;
   createdAt: Date;
@@ -113,9 +113,11 @@ const ExpenseSchema = new Schema<IExpense>(
       maxlength: [500, 'Notes cannot exceed 500 characters'],
       default: null,
     },
-    tags: {
-      type: [String],
-      default: [],
+    item: {
+      type: String,
+      trim: true,
+      maxlength: [100, 'Item name cannot exceed 100 characters'],
+      default: null,
     },
     isSplit: {
       type: Boolean,
