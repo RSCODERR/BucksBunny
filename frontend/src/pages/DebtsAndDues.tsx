@@ -15,6 +15,7 @@ import {
   Building2,
   Banknote,
   Download,
+  Trash2,
 } from 'lucide-react';
 import {
   expenseService,
@@ -81,6 +82,28 @@ export const DebtsAndDues: React.FC<DebtsAndDuesProps> = ({
   // Close modal
   const handleCloseModal = () => {
     setActiveModalDebt(null);
+  };
+
+  const [deletingRepaymentId, setDeletingRepaymentId] = useState<string | null>(null);
+
+  const handleDeleteRepayment = async (repaymentId: string, counterpartyName: string) => {
+    if (!window.confirm(`Delete this repayment record for ${counterpartyName}?`)) {
+      return;
+    }
+
+    try {
+      setDeletingRepaymentId(repaymentId);
+      await expenseService.deleteRepayment(repaymentId);
+      setRepayments((prev) => prev.filter((r) => r.id !== repaymentId));
+      setSuccessToast(`Deleted repayment record for ${counterpartyName}.`);
+      setTimeout(() => setSuccessToast(null), 4000);
+      fetchData();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete repayment record.';
+      setError(msg);
+    } finally {
+      setDeletingRepaymentId(null);
+    }
   };
 
   // Export CSV
@@ -556,6 +579,7 @@ export const DebtsAndDues: React.FC<DebtsAndDuesProps> = ({
                   <th className="py-3 px-4">Audit Impact</th>
                   <th className="py-3 px-4 text-right">Amount</th>
                   <th className="py-3 px-4">Ledger Memo</th>
+                  <th className="py-3 px-4 text-center">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F1F5F9] text-xs font-medium">
@@ -602,6 +626,21 @@ export const DebtsAndDues: React.FC<DebtsAndDuesProps> = ({
                       </td>
                       <td className="py-3 px-4 text-[#4B5563] max-w-xs truncate">
                         {r.memo || 'Settlement'}
+                      </td>
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
+                        <button
+                          type="button"
+                          disabled={deletingRepaymentId === r.id}
+                          onClick={() => handleDeleteRepayment(r.id, r.counterpartyName)}
+                          title="Delete repayment entry"
+                          className="p-1.5 text-[#9CA3AF] hover:text-[#DC2626] hover:bg-[#FEF2F2] rounded transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {deletingRepaymentId === r.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin text-[#DC2626]" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
                       </td>
                     </tr>
                   );

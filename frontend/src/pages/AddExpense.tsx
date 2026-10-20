@@ -138,6 +138,8 @@ export const AddExpense: React.FC<AddExpenseProps> = ({ onSuccess, onCancel }) =
         title: title.trim(),
         category: category as ExpenseCategory,
         date,
+        merchant: title.trim(),
+        item: title.trim(),
         paymentMethod: paymentMethod ? (paymentMethod as PaymentMethod) : undefined,
         notes: notes.trim() || undefined,
       });

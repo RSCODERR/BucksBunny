@@ -12,6 +12,7 @@ import { Overview } from './pages/Overview';
 import { Transactions } from './pages/Transactions';
 import { People } from './pages/People';
 import { DebtsAndDues } from './pages/DebtsAndDues';
+import { Insights } from './pages/Insights';
 import { DashboardLayout, DashboardTab } from './components/layout/DashboardLayout';
 import { AddNewExpenseModal } from './components/expenses/AddNewExpenseModal';
 import { AuthUserData } from './services/authService';
@@ -103,6 +104,12 @@ export const App: React.FC = () => {
         ) : activeDashboardTab === 'people' ? (
           <People
             onOpenAddExpense={() => setIsModalOpen(true)}
+          />
+        ) : activeDashboardTab === 'insights' ? (
+          <Insights
+            onOpenAddExpense={() => setIsModalOpen(true)}
+            onNavigateToTab={(tab) => setActiveDashboardTab(tab)}
+            refreshTrigger={refreshTrigger}
           />
         ) : (
           <div className="p-8 sm:p-12 max-w-2xl mx-auto text-center space-y-4">

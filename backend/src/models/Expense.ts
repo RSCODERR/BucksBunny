@@ -42,8 +42,8 @@ export interface IExpense extends Document {
   date: Date;
   time?: string | null;
   paymentMethod?: PaymentMethod | null;
-  merchant?: string | null;
-  item?: string | null;
+  merchant: string;
+  item: string;
   notes?: string | null;
   isSplit: boolean;
   splitDetails?: ISplitDetails | null;
@@ -103,9 +103,10 @@ const ExpenseSchema = new Schema<IExpense>(
     },
     merchant: {
       type: String,
+      required: [true, 'Merchant or payee name is required'],
       trim: true,
+      minlength: [1, 'Merchant or payee name must be at least 1 character'],
       maxlength: [100, 'Merchant name cannot exceed 100 characters'],
-      default: null,
     },
     notes: {
       type: String,
@@ -115,9 +116,10 @@ const ExpenseSchema = new Schema<IExpense>(
     },
     item: {
       type: String,
+      required: [true, 'Item spent on is required'],
       trim: true,
+      minlength: [1, 'Item spent on must be at least 1 character'],
       maxlength: [100, 'Item name cannot exceed 100 characters'],
-      default: null,
     },
     isSplit: {
       type: Boolean,

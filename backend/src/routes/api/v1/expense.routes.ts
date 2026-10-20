@@ -10,6 +10,7 @@ import {
   getRepayments,
   deleteExpense,
   deleteDebt,
+  deleteRepayment,
 } from '../../../controllers/expense.controller';
 import { authenticateUser } from '../../../middlewares/auth.middleware';
 
@@ -23,6 +24,9 @@ router.get('/overview', authenticateUser, getExpenseOverview);
 
 // GET /api/v1/expenses/repayments - Repayment audit log
 router.get('/repayments', authenticateUser, getRepayments);
+
+// DELETE /api/v1/expenses/repayments/:id - Delete single repayment record
+router.delete('/repayments/:id', authenticateUser, deleteRepayment);
 
 // POST /api/v1/expenses
 router.post('/', authenticateUser, createExpense);

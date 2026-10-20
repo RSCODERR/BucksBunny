@@ -280,6 +280,12 @@ export const expenseService = {
       method: 'DELETE',
     });
   },
+
+  deleteRepayment: async (repaymentId: string): Promise<ApiResponse<{ message: string; id: string }>> => {
+    return apiClient<ApiResponse<{ message: string; id: string }>>(`/expenses/repayments/${repaymentId}`, {
+      method: 'DELETE',
+    });
+  },
 };
 
 

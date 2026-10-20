@@ -422,8 +422,12 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
       }
     }
 
-    if (!title.trim() && !item.trim() && !merchant.trim()) {
-      newErrors.title = 'Please provide an item name, description, or merchant for this expense.';
+    if (!merchant.trim()) {
+      newErrors.merchant = 'Merchant or payee name is required.';
+    }
+
+    if (!item.trim()) {
+      newErrors.item = 'Item spent on is required.';
     }
 
     if (isSplit) {
@@ -465,7 +469,7 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
     setIsLoading(true);
 
     try {
-      const expenseTitle = item.trim() || title.trim() || merchant.trim() || 'Expense';
+      const expenseTitle = item.trim() || merchant.trim() || title.trim() || 'Expense';
 
       let splitPayload = undefined;
       if (isSplit) {
@@ -497,8 +501,8 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
           date,
           time,
           paymentMethod,
-          merchant: merchant.trim() || undefined,
-          item: item.trim() || undefined,
+          merchant: merchant.trim(),
+          item: item.trim(),
           notes: title.trim() ? title.trim() : undefined,
           isSplit,
           splitDetails: splitPayload,
@@ -511,8 +515,8 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
           date,
           time,
           paymentMethod,
-          merchant: merchant.trim() || undefined,
-          item: item.trim() || undefined,
+          merchant: merchant.trim(),
+          item: item.trim(),
           notes: title.trim() ? title.trim() : undefined,
           isSplit,
           splitDetails: splitPayload,
@@ -683,10 +687,14 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                 htmlFor="expense-merchant-input"
                 className="block text-xs font-bold text-[#1F2937] tracking-wider uppercase"
               >
-                MERCHANT OR PAYEE
+                MERCHANT OR PAYEE <span className="text-[#DC2626]">*</span>
               </label>
-              <div className="flex items-center gap-2.5 px-3.5 py-3 bg-white border border-[#CBD5E1] rounded-lg focus-within:border-[#064E3B] focus-within:ring-1 focus-within:ring-[#064E3B] transition-all">
-                <Store className="w-5 h-5 text-[#4B5563] shrink-0" />
+              <div
+                className={`flex items-center gap-2.5 px-3.5 py-3 bg-white border ${
+                  errors.merchant ? 'border-[#DC2626]' : 'border-[#CBD5E1]'
+                } rounded-lg focus-within:border-[#064E3B] focus-within:ring-1 focus-within:ring-[#064E3B] transition-all`}
+              >
+                <Store className={`w-5 h-5 ${errors.merchant ? 'text-[#DC2626]' : 'text-[#4B5563]'} shrink-0`} />
                 <input
                   id="expense-merchant-input"
                   type="text"
@@ -696,12 +704,22 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                   onChange={(e) => {
                     setMerchant(e.target.value);
                     markDirty();
+                    if (errors.merchant) {
+                      setErrors((prev) => {
+                        const copy = { ...prev };
+                        delete copy.merchant;
+                        return copy;
+                      });
+                    }
                   }}
                   placeholder="e.g. The Fatty Bao, Grocery Mart"
                   className="w-full text-sm sm:text-base font-semibold text-[#111827] placeholder:text-neutral-400 focus:outline-none bg-transparent"
                 />
               </div>
               <p className="text-xs font-medium text-[#4B5563]">Payee name or transaction party</p>
+              {errors.merchant && (
+                <p className="text-xs text-[#DC2626] font-bold">{errors.merchant}</p>
+              )}
             </div>
           </div>
 
@@ -798,10 +816,14 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                 htmlFor="expense-item-input"
                 className="block text-xs font-bold text-[#1F2937] tracking-wider uppercase"
               >
-                ITEM OR PRODUCT SPENT ON
+                ITEM OR PRODUCT SPENT ON <span className="text-[#DC2626]">*</span>
               </label>
-              <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-white border border-[#CBD5E1] rounded-lg focus-within:border-[#064E3B] focus-within:ring-1 focus-within:ring-[#064E3B] transition-all">
-                <ShoppingBag className="w-4.5 h-4.5 text-[#4B5563] shrink-0" />
+              <div
+                className={`flex items-center gap-2.5 px-3.5 py-2.5 bg-white border ${
+                  errors.item ? 'border-[#DC2626]' : 'border-[#CBD5E1]'
+                } rounded-lg focus-within:border-[#064E3B] focus-within:ring-1 focus-within:ring-[#064E3B] transition-all`}
+              >
+                <ShoppingBag className={`w-4.5 h-4.5 ${errors.item ? 'text-[#DC2626]' : 'text-[#4B5563]'} shrink-0`} />
                 <input
                   id="expense-item-input"
                   type="text"
@@ -811,6 +833,13 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                   onChange={(e) => {
                     setItem(e.target.value);
                     markDirty();
+                    if (errors.item) {
+                      setErrors((prev) => {
+                        const copy = { ...prev };
+                        delete copy.item;
+                        return copy;
+                      });
+                    }
                   }}
                   placeholder="e.g. Burger, Chips, Coffee, Groceries"
                   className="w-full text-sm font-semibold text-[#111827] placeholder:text-neutral-400 focus:outline-none bg-transparent"
@@ -819,6 +848,9 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
               <p className="text-xs font-medium text-[#4B5563]">
                 Specific item purchased (used for spending analysis and suggestions)
               </p>
+              {errors.item && (
+                <p className="text-xs text-[#DC2626] font-bold">{errors.item}</p>
+              )}
             </div>
 
             {/* Description & Notes */}

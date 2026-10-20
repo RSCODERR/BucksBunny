@@ -257,17 +257,25 @@ export const createExpense = async (req: Request, res: Response, next: NextFunct
       validPaymentMethod = trimmedPayment;
     }
 
-    // Optional merchant or payee
-    let trimmedMerchant: string | null = null;
-    if (merchant && typeof merchant === 'string' && merchant.trim()) {
-      const mStr = merchant.trim();
-      if (mStr.length > 100) {
-        throw new AppError('Merchant name cannot exceed 100 characters.', 400);
-      }
-      trimmedMerchant = mStr;
+    // 6. Merchant or payee validation (compulsory)
+    if (!merchant || typeof merchant !== 'string' || !merchant.trim()) {
+      throw new AppError('Merchant or payee name is required.', 400);
+    }
+    const trimmedMerchant = merchant.trim();
+    if (trimmedMerchant.length > 100) {
+      throw new AppError('Merchant name cannot exceed 100 characters.', 400);
     }
 
-    // 6. Notes validation (optional)
+    // 7. Specific item spent on validation (compulsory)
+    if (!item || typeof item !== 'string' || !item.trim()) {
+      throw new AppError('Item spent on is required.', 400);
+    }
+    const trimmedItem = item.trim();
+    if (trimmedItem.length > 100) {
+      throw new AppError('Item name cannot exceed 100 characters.', 400);
+    }
+
+    // 8. Notes validation (optional)
     let trimmedNotes: string | null = null;
     if (notes && typeof notes === 'string' && notes.trim()) {
       const noteStr = notes.trim();
@@ -277,17 +285,7 @@ export const createExpense = async (req: Request, res: Response, next: NextFunct
       trimmedNotes = noteStr;
     }
 
-    // Optional specific item spent on (e.g. Burger, Chips, Groceries)
-    let trimmedItem: string | null = null;
-    if (item && typeof item === 'string' && item.trim()) {
-      const itemStr = item.trim();
-      if (itemStr.length > 100) {
-        throw new AppError('Item name cannot exceed 100 characters.', 400);
-      }
-      trimmedItem = itemStr;
-    }
-
-    // 7. Split expense validation & financial calculations
+    // 9. Split expense validation & financial calculations
     let validatedSplitDetails: ISplitDetails | null = null;
     const debtsToCreate: Array<{
       userId: string;
@@ -835,8 +833,35 @@ export const updateExpense = async (req: Request, res: Response, next: NextFunct
 
     const expenseDate = date ? new Date(date) : existingExpense.date;
     const trimmedTime = typeof time === 'string' ? time.trim() : existingExpense.time;
-    const trimmedMerchant = typeof merchant === 'string' ? merchant.trim() : existingExpense.merchant;
-    const trimmedItem = typeof item === 'string' ? item.trim() : existingExpense.item;
+
+    let finalMerchant = existingExpense.merchant;
+    if (merchant !== undefined) {
+      if (typeof merchant !== 'string' || !merchant.trim()) {
+        throw new AppError('Merchant or payee name is required.', 400);
+      }
+      finalMerchant = merchant.trim();
+    }
+    if (!finalMerchant) {
+      throw new AppError('Merchant or payee name is required.', 400);
+    }
+    if (finalMerchant.length > 100) {
+      throw new AppError('Merchant name cannot exceed 100 characters.', 400);
+    }
+
+    let finalItem = existingExpense.item;
+    if (item !== undefined) {
+      if (typeof item !== 'string' || !item.trim()) {
+        throw new AppError('Item spent on is required.', 400);
+      }
+      finalItem = item.trim();
+    }
+    if (!finalItem) {
+      throw new AppError('Item spent on is required.', 400);
+    }
+    if (finalItem.length > 100) {
+      throw new AppError('Item name cannot exceed 100 characters.', 400);
+    }
+
     const trimmedNotes = typeof notes === 'string' ? notes.trim() : existingExpense.notes;
 
     // 1. RECONCILE AND ROLLBACK OLD SPLIT DEBT IMPACT
@@ -1097,8 +1122,8 @@ export const updateExpense = async (req: Request, res: Response, next: NextFunct
     existingExpense.date = expenseDate;
     existingExpense.time = trimmedTime;
     existingExpense.paymentMethod = validPaymentMethod;
-    existingExpense.merchant = trimmedMerchant;
-    existingExpense.item = trimmedItem;
+    existingExpense.merchant = finalMerchant;
+    existingExpense.item = finalItem;
     existingExpense.notes = trimmedNotes;
     existingExpense.isSplit = Boolean(isSplit);
     existingExpense.splitDetails = validatedSplitDetails;
@@ -1601,6 +1626,11 @@ export const getRepayments = async (req: Request, res: Response, next: NextFunct
       throw new AppError('Authentication required to retrieve repayment audit log.', 401);
     }
 
+    // Auto-clean orphaned repayments where the associated debt was deleted
+    const allUserDebts = await Debt.find({ userId: req.user.id }, { _id: 1 });
+    const userDebtIds = allUserDebts.map((d) => d._id);
+    await Repayment.deleteMany({ userId: req.user.id, debtId: { $nin: userDebtIds } });
+
     const repayments = await Repayment.find({ userId: req.user.id }).sort({ date: -1, createdAt: -1 });
 
     const formatted = repayments.map((r) => ({
@@ -1645,7 +1675,16 @@ export const deleteExpense = async (req: Request, res: Response, next: NextFunct
     // Check if it's an Expense
     const deletedExpense = await Expense.findOneAndDelete({ _id: expenseId, userId: req.user.id });
     if (deletedExpense) {
-      // If the expense was split, reduce the corresponding debts from each participant
+      // 1. Find all debts directly tied to this expenseId (both settled and unsettled)
+      const tiedDebts = await Debt.find({ expenseId, userId: req.user.id });
+      const tiedDebtIds = tiedDebts.map((d) => d._id);
+
+      // Cascade delete repayments linked to these tied debts
+      if (tiedDebtIds.length > 0) {
+        await Repayment.deleteMany({ debtId: { $in: tiedDebtIds } });
+      }
+
+      // 2. If the expense was split, reduce the corresponding debts from each participant
       if (deletedExpense.isSplit && deletedExpense.splitDetails) {
         if (deletedExpense.splitDetails.payerType === 'YOU' && deletedExpense.splitDetails.participants) {
           for (const p of deletedExpense.splitDetails.participants) {
@@ -1654,16 +1693,26 @@ export const deleteExpense = async (req: Request, res: Response, next: NextFunct
                 userId: req.user.id,
                 debtorName: { $regex: new RegExp(`^${p.name.trim()}$`, 'i') },
                 isReceivable: true,
-                isSettled: false,
               });
               if (debt) {
                 const remaining = debt.amountInPaise - p.shareInPaise;
                 if (remaining <= 0) {
+                  await Repayment.deleteMany({ debtId: debt._id });
                   await Debt.deleteOne({ _id: debt._id });
                 } else {
                   debt.amountInPaise = remaining;
+                  debt.initialAmountInPaise = Math.max(remaining, (debt.initialAmountInPaise || remaining) - p.shareInPaise);
                   await debt.save();
                 }
+              }
+
+              // Also delete any repayments whose memo references this expense title or counterparty
+              if (deletedExpense.title) {
+                await Repayment.deleteMany({
+                  userId: req.user.id,
+                  counterpartyName: { $regex: new RegExp(`^${p.name.trim()}$`, 'i') },
+                  memo: { $regex: new RegExp(deletedExpense.title.trim(), 'i') },
+                });
               }
             }
           }
@@ -1675,16 +1724,25 @@ export const deleteExpense = async (req: Request, res: Response, next: NextFunct
               userId: req.user.id,
               creditorName: { $regex: new RegExp(`^${payerName.trim()}$`, 'i') },
               isReceivable: false,
-              isSettled: false,
             });
             if (debt) {
               const remaining = debt.amountInPaise - userShare;
               if (remaining <= 0) {
+                await Repayment.deleteMany({ debtId: debt._id });
                 await Debt.deleteOne({ _id: debt._id });
               } else {
                 debt.amountInPaise = remaining;
+                debt.initialAmountInPaise = Math.max(remaining, (debt.initialAmountInPaise || remaining) - userShare);
                 await debt.save();
               }
+            }
+
+            if (deletedExpense.title) {
+              await Repayment.deleteMany({
+                userId: req.user.id,
+                counterpartyName: { $regex: new RegExp(`^${payerName.trim()}$`, 'i') },
+                memo: { $regex: new RegExp(deletedExpense.title.trim(), 'i') },
+              });
             }
           }
         }
@@ -1692,6 +1750,11 @@ export const deleteExpense = async (req: Request, res: Response, next: NextFunct
 
       // Cascade delete any remaining debts directly bound to this expenseId
       await Debt.deleteMany({ expenseId });
+
+      // Clean up any orphaned repayments whose debtId no longer exists in Debt
+      const allActiveDebts = await Debt.find({ userId: req.user.id }, { _id: 1 });
+      const validDebtIds = allActiveDebts.map((d) => d._id);
+      await Repayment.deleteMany({ userId: req.user.id, debtId: { $nin: validDebtIds } });
 
       // Re-net debts after deletion
       await netMutualDebts(req.user.id);
@@ -1709,7 +1772,19 @@ export const deleteExpense = async (req: Request, res: Response, next: NextFunct
     // If not found in Expense, check if it's a Repayment
     const deletedRepayment = await Repayment.findOneAndDelete({ _id: expenseId, userId: req.user.id });
     if (deletedRepayment) {
+      // If the debt still exists, restore the balance
+      const debt = await Debt.findOne({ _id: deletedRepayment.debtId, userId: req.user.id });
+      if (debt) {
+        debt.amountInPaise += deletedRepayment.amountInPaise;
+        debt.totalPaidInPaise = Math.max(0, (debt.totalPaidInPaise || 0) - deletedRepayment.amountInPaise);
+        if (debt.amountInPaise > 0) {
+          debt.isSettled = false;
+        }
+        await debt.save();
+      }
+
       await netMutualDebts(req.user.id);
+
       res.status(200).json({
         success: true,
         data: {
@@ -1743,11 +1818,62 @@ export const deleteDebt = async (req: Request, res: Response, next: NextFunction
       throw new AppError('Debt record not found or unauthorized.', 404);
     }
 
+    // Cascade delete any repayments linked to this deleted debt
+    await Repayment.deleteMany({ debtId: deletedDebt._id });
+
+    // Clean any orphaned repayments
+    const allUserDebts = await Debt.find({ userId: req.user.id }, { _id: 1 });
+    const userDebtIds = allUserDebts.map((d) => d._id);
+    await Repayment.deleteMany({ userId: req.user.id, debtId: { $nin: userDebtIds } });
+
+    await netMutualDebts(req.user.id);
+
     res.status(200).json({
       success: true,
       data: {
-        message: 'Debt removed from database successfully.',
+        message: 'Debt and linked repayments removed from database successfully.',
         debtId: String(deletedDebt._id),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteRepayment = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    if (!req.user || !req.user.id) {
+      throw new AppError('Authentication required to delete repayment.', 401);
+    }
+
+    const repaymentId = String(req.params.id || '');
+    if (!repaymentId) {
+      throw new AppError('Repayment ID is required.', 400);
+    }
+
+    const repayment = await Repayment.findOneAndDelete({ _id: repaymentId, userId: req.user.id });
+    if (!repayment) {
+      throw new AppError('Repayment record not found or unauthorized.', 404);
+    }
+
+    // If the debt still exists, restore the balance
+    const debt = await Debt.findOne({ _id: repayment.debtId, userId: req.user.id });
+    if (debt) {
+      debt.amountInPaise += repayment.amountInPaise;
+      debt.totalPaidInPaise = Math.max(0, (debt.totalPaidInPaise || 0) - repayment.amountInPaise);
+      if (debt.amountInPaise > 0) {
+        debt.isSettled = false;
+      }
+      await debt.save();
+    }
+
+    await netMutualDebts(req.user.id);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        message: 'Repayment record deleted successfully.',
+        id: String(repayment._id),
       },
     });
   } catch (error) {
