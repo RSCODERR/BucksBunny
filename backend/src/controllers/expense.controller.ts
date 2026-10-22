@@ -12,6 +12,7 @@ import { Debt } from '../models/Debt';
 import { Person } from '../models/Person';
 import { Repayment } from '../models/Repayment';
 import { AppError } from '../errors/AppError';
+import { notificationService } from '../services/notification.service';
 
 /**
  * Net mutual debts between authenticated user and a counterparty (or all counterparties).
@@ -521,6 +522,9 @@ export const createExpense = async (req: Request, res: Response, next: NextFunct
       await netMutualDebts(req.user.id);
     }
 
+    // Notify eligible friend participants about the shared expense
+    await notificationService.notifyExpenseCreated(newExpense, req.user.id);
+
     res.status(201).json({
       success: true,
       data: {
@@ -791,6 +795,10 @@ export const updateExpense = async (req: Request, res: Response, next: NextFunct
     if (!existingExpense) {
       throw new AppError('Expense record not found or unauthorized.', 404);
     }
+
+    const previousParticipants = existingExpense.splitDetails?.participants
+      ? existingExpense.splitDetails.participants.map((p) => ({ name: p.name, shareInPaise: p.shareInPaise }))
+      : [];
 
     const {
       amount,
@@ -1130,6 +1138,9 @@ export const updateExpense = async (req: Request, res: Response, next: NextFunct
 
     await existingExpense.save();
 
+    // Notify affected friend participants about share or expense updates
+    await notificationService.notifyExpenseUpdated(existingExpense, req.user.id, previousParticipants);
+
     res.status(200).json({
       success: true,
       data: {
@@ -1372,7 +1383,7 @@ export const settleDebt = async (req: Request, res: Response, next: NextFunction
     const amountSettledInPaise = debt.amountInPaise;
 
     // Log the full repayment into the audit ledger
-    await Repayment.create({
+    const repayment = await Repayment.create({
       userId: req.user.id,
       debtId: debt._id,
       counterpartyName: counterparty,
@@ -1391,6 +1402,9 @@ export const settleDebt = async (req: Request, res: Response, next: NextFunction
     await debt.save();
 
     await netMutualDebts(req.user.id, counterparty);
+
+    // Notify counterparty friend about settlement
+    await notificationService.notifyRepaymentRecorded(repayment, req.user.id, counterparty);
 
     res.status(200).json({
       success: true,
@@ -1543,6 +1557,9 @@ export const repayDebt = async (req: Request, res: Response, next: NextFunction)
 
     // Ensure bilateral netting is up to date
     await netMutualDebts(req.user.id, counterparty);
+
+    // Notify counterparty friend about repayment
+    await notificationService.notifyRepaymentRecorded(repayment, req.user.id, counterparty);
 
     let statusMessage = '';
     let finalDirection: 'OWED_TO_USER' | 'USER_OWES' | 'SETTLED' = 'SETTLED';
@@ -1758,6 +1775,9 @@ export const deleteExpense = async (req: Request, res: Response, next: NextFunct
 
       // Re-net debts after deletion
       await netMutualDebts(req.user.id);
+
+      // Notify previously eligible friend participants that shared expense was removed
+      await notificationService.notifyExpenseDeleted(deletedExpense, req.user.id);
 
       res.status(200).json({
         success: true,

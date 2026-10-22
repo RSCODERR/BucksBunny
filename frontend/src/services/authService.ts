@@ -3,6 +3,7 @@ import { ApiResponse } from '../types/api';
 
 export interface AuthUserData {
   id: string;
+  name?: string;
   username: string;
   email: string;
   agreedToTerms: boolean;
@@ -20,6 +21,7 @@ export interface AuthResponseData {
 }
 
 export interface SignUpPayload {
+  name: string;
   username: string;
   email: string;
   password: string;

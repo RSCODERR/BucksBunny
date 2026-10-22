@@ -2,10 +2,11 @@ import { Server } from 'http';
 import app from './app';
 import { env } from './config/env';
 import { connectToDatabase, disconnectFromDatabase } from './config/database';
-import { purgeExpiredResetCodes } from './controllers/auth.controller';
+import { purgeExpiredResetCodes, purgeExpiredUnverifiedUsers } from './controllers/auth.controller';
 
 let server: Server | null = null;
 let resetCodeCleanupInterval: NodeJS.Timeout | null = null;
+let unverifiedUserCleanupInterval: NodeJS.Timeout | null = null;
 
 async function startServer(): Promise<void> {
   console.log(`[Server] Starting BucksBunny API in ${env.NODE_ENV} mode...`);
@@ -13,11 +14,17 @@ async function startServer(): Promise<void> {
   // Connect to MongoDB
   try {
     await connectToDatabase();
-    // Purge any lingering expired password reset codes from the database
+    // Purge any lingering expired password reset codes & unverified users (> 20 min) from database
     await purgeExpiredResetCodes();
+    await purgeExpiredUnverifiedUsers();
+
     // Schedule periodic purge every 60 seconds
     resetCodeCleanupInterval = setInterval(() => {
       purgeExpiredResetCodes();
+    }, 60 * 1000);
+
+    unverifiedUserCleanupInterval = setInterval(() => {
+      purgeExpiredUnverifiedUsers();
     }, 60 * 1000);
   } catch (error) {
     console.error(`[Server Warning] Could not connect to MongoDB initially. Health check will report database status.`);
@@ -53,6 +60,11 @@ async function gracefulShutdown(signal: string): Promise<void> {
   if (resetCodeCleanupInterval) {
     clearInterval(resetCodeCleanupInterval);
     resetCodeCleanupInterval = null;
+  }
+
+  if (unverifiedUserCleanupInterval) {
+    clearInterval(unverifiedUserCleanupInterval);
+    unverifiedUserCleanupInterval = null;
   }
 
   if (server) {

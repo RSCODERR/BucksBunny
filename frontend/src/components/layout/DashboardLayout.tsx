@@ -16,6 +16,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { AuthUserData } from '../../services/authService';
+import { NotificationBell } from '../notifications/NotificationBell';
 
 export type DashboardTab =
   | 'overview'
@@ -85,6 +86,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           <span className="font-bold text-base text-[#111827]">BucksBunny</span>
         </div>
         <div className="flex items-center gap-2">
+          <NotificationBell onNavigateToTab={onTabChange} />
           <button
             type="button"
             onClick={onOpenAddExpense}
@@ -205,6 +207,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
 
           {/* Right Header Actions */}
           <div className="flex items-center gap-3">
+            <NotificationBell onNavigateToTab={onTabChange} />
           </div>
         </header>
 

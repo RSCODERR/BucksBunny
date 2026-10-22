@@ -15,6 +15,7 @@ export const SignUp: React.FC<SignUpProps> = ({
   onNavigateToPrivacy,
   onSuccess,
 }) => {
+  const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,12 +24,14 @@ export const SignUp: React.FC<SignUpProps> = ({
 
   // Interaction states
   const [errors, setErrors] = useState<{
+    name?: string;
     username?: string;
     email?: string;
     password?: string;
     agreedToTerms?: string;
   }>({});
   const [touched, setTouched] = useState<{
+    name?: boolean;
     username?: boolean;
     email?: boolean;
     password?: boolean;
@@ -40,16 +43,25 @@ export const SignUp: React.FC<SignUpProps> = ({
 
   const validate = (): boolean => {
     const newErrors: {
+      name?: string;
       username?: string;
       email?: string;
       password?: string;
       agreedToTerms?: string;
     } = {};
 
+    if (!name.trim()) {
+      newErrors.name = 'Full name is required.';
+    } else if (name.trim().length < 2) {
+      newErrors.name = 'Full name must be at least 2 characters.';
+    }
+
     if (!username.trim()) {
       newErrors.username = 'Username is required.';
     } else if (username.trim().length < 3) {
       newErrors.username = 'Username must be at least 3 characters.';
+    } else if (!/^(?=.*\d)[a-zA-Z0-9_]{3,20}$/.test(username.trim())) {
+      newErrors.username = 'Username must contain at least one number and only letters, numbers, and underscores (e.g. rahul_07).';
     }
 
     if (!email.trim()) {
@@ -73,14 +85,29 @@ export const SignUp: React.FC<SignUpProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleBlur = (field: 'username' | 'email' | 'password') => {
+  const handleBlur = (field: 'name' | 'username' | 'email' | 'password') => {
     setTouched((prev) => ({ ...prev, [field]: true }));
+
+    if (field === 'name') {
+      if (!name.trim()) {
+        setErrors((prev) => ({ ...prev, name: 'Full name is required.' }));
+      } else if (name.trim().length < 2) {
+        setErrors((prev) => ({ ...prev, name: 'Full name must be at least 2 characters.' }));
+      } else {
+        setErrors((prev) => ({ ...prev, name: undefined }));
+      }
+    }
 
     if (field === 'username') {
       if (!username.trim()) {
         setErrors((prev) => ({ ...prev, username: 'Username is required.' }));
       } else if (username.trim().length < 3) {
         setErrors((prev) => ({ ...prev, username: 'Username must be at least 3 characters.' }));
+      } else if (!/^(?=.*\d)[a-zA-Z0-9_]{3,20}$/.test(username.trim())) {
+        setErrors((prev) => ({
+          ...prev,
+          username: 'Username must contain at least one number (e.g. rahul_07).',
+        }));
       } else {
         setErrors((prev) => ({ ...prev, username: undefined }));
       }
@@ -109,7 +136,7 @@ export const SignUp: React.FC<SignUpProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setTouched({ username: true, email: true, password: true, agreedToTerms: true });
+    setTouched({ name: true, username: true, email: true, password: true, agreedToTerms: true });
     setServerError(null);
 
     if (!validate()) {
@@ -121,6 +148,7 @@ export const SignUp: React.FC<SignUpProps> = ({
     try {
       // Sends registration payload including the mandatory agreedToTerms value to the backend
       await authService.signUp({
+        name: name.trim(),
         username: username.trim(),
         email: email.trim(),
         password,
@@ -195,14 +223,58 @@ export const SignUp: React.FC<SignUpProps> = ({
 
         {/* Sign Up Form */}
         <form onSubmit={handleSubmit} noValidate className="space-y-5">
+          {/* Field: Full Name */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="name"
+                className="block text-sm font-semibold text-[#17211D]"
+              >
+                Full Name
+              </label>
+              <span className="text-[11px] text-[#66716B]">Displayed to your friends</span>
+            </div>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              autoComplete="name"
+              disabled={isLoading || isSuccess}
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (touched.name) {
+                  setErrors((prev) => ({ ...prev, name: undefined }));
+                }
+              }}
+              onBlur={() => handleBlur('name')}
+              placeholder="e.g. Rahul Sharma"
+              aria-invalid={touched.name && !!errors.name}
+              aria-describedby={errors.name ? 'name-error' : undefined}
+              className={`w-full h-11 px-3.5 text-base bg-white border rounded-[4px] text-[#17211D] placeholder:text-[#9BA39E] transition-colors focus:outline-none disabled:bg-[#F7F8F5] disabled:cursor-not-allowed ${
+                touched.name && errors.name
+                  ? 'border-[#C24141] focus:border-[#C24141] focus:ring-1 focus:ring-[#C24141]'
+                  : 'border-[#E1E6E1] focus:border-[#16A765] focus:ring-1 focus:ring-[#16A765]'
+              }`}
+            />
+            {touched.name && errors.name && (
+              <p id="name-error" className="text-sm text-[#C24141]">
+                {errors.name}
+              </p>
+            )}
+          </div>
+
           {/* Field: Username */}
           <div className="space-y-2">
-            <label
-              htmlFor="username"
-              className="block text-sm font-semibold text-[#17211D]"
-            >
-              Username
-            </label>
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="username"
+                className="block text-sm font-semibold text-[#17211D]"
+              >
+                Username
+              </label>
+              <span className="text-[11px] text-[#66716B]">Must include numbers</span>
+            </div>
             <input
               id="username"
               name="username"
@@ -217,7 +289,7 @@ export const SignUp: React.FC<SignUpProps> = ({
                 }
               }}
               onBlur={() => handleBlur('username')}
-              placeholder="e.g. rahul_sharma"
+              placeholder="e.g. rahul_07"
               aria-invalid={touched.username && !!errors.username}
               aria-describedby={errors.username ? 'username-error' : undefined}
               className={`w-full h-11 px-3.5 text-base bg-white border rounded-[4px] text-[#17211D] placeholder:text-[#9BA39E] transition-colors focus:outline-none disabled:bg-[#F7F8F5] disabled:cursor-not-allowed ${

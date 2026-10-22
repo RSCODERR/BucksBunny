@@ -4,12 +4,14 @@ import { env } from '../config/env';
 interface SendVerificationEmailOptions {
   toEmail: string;
   username: string;
+  name?: string;
   code: string;
 }
 
 export const sendVerificationEmail = async ({
   toEmail,
   username,
+  name,
   code,
 }: SendVerificationEmailOptions): Promise<boolean> => {
   if (!env.BREVO_API_KEY) {
@@ -55,7 +57,7 @@ export const sendVerificationEmail = async ({
                 Verify your email address
               </h1>
               <p style="margin: 0 0 20px 0; font-size: 15px; line-height: 1.6; color: #4B5563;">
-                Hello <strong>${username}</strong>,
+                Hello <strong>${name || username}</strong>,
               </p>
               <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.6; color: #4B5563;">
                 Thank you for creating an account with BucksBunny. Enter the 6-digit verification code below to confirm your email address and activate your account.

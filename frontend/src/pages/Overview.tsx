@@ -25,6 +25,7 @@ import {
   expenseService,
   ExpenseOverviewData,
 } from '../services/expenseService';
+import { NeedsAttentionSection } from '../components/overview/NeedsAttentionSection';
 
 interface OverviewProps {
   onOpenAddExpense: () => void;
@@ -234,6 +235,12 @@ export const Overview: React.FC<OverviewProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Needs Your Attention Section (only visible when actionable items exist) */}
+      <NeedsAttentionSection
+        onNavigateToTab={onNavigateToTab}
+        refreshTrigger={refreshTrigger}
+      />
 
       {!hasExpensesOrDebts ? (
         /* Empty State when no expense exists */

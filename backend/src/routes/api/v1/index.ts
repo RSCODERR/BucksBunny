@@ -4,6 +4,7 @@ import authRoutes from './auth.routes';
 import expenseRoutes from './expense.routes';
 import peopleRoutes from './people.routes';
 import insightsRoutes from './insights.routes';
+import notificationRoutes from './notification.routes';
 
 const router = Router();
 
@@ -13,5 +14,6 @@ router.use('/auth', authRoutes);
 router.use('/expenses', expenseRoutes);
 router.use('/people', peopleRoutes);
 router.use('/insights', insightsRoutes);
+router.use('/notifications', notificationRoutes);
 
 export default router;

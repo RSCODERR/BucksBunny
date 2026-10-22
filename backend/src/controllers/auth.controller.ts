@@ -8,15 +8,31 @@ import { generateAuthToken } from '../utils/auth.token';
 
 export const signUp = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { username, email, password, agreedToTerms } = req.body;
+    const { name, username, email, password, agreedToTerms } = req.body;
 
     // Validate mandatory agreedToTerms checkbox
     if (agreedToTerms !== true) {
       throw new AppError('You must agree to the Terms and Conditions and Privacy Policy to proceed.', 400);
     }
 
-    if (!username || typeof username !== 'string' || username.trim().length < 3) {
-      throw new AppError('Username is required and must be at least 3 characters.', 400);
+    if (!name || typeof name !== 'string' || name.trim().length < 2) {
+      throw new AppError('Full name is required and must be at least 2 characters.', 400);
+    }
+
+    if (name.trim().length > 100) {
+      throw new AppError('Full name cannot exceed 100 characters.', 400);
+    }
+
+    if (!username || typeof username !== 'string' || !/^(?=.*\d)[a-zA-Z0-9_]{3,20}$/.test(username.trim())) {
+      throw new AppError(
+        'Username must be 3-20 characters long, contain at least one number, and only use letters, numbers, and underscores.',
+        400
+      );
+    }
+
+    const reservedUsernames = ['you', 'admin', 'bucksbunny', 'system', 'root', 'support'];
+    if (reservedUsernames.includes(username.trim().toLowerCase())) {
+      throw new AppError('This username is reserved. Please choose another.', 400);
     }
 
     if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
@@ -30,25 +46,38 @@ export const signUp = async (req: Request, res: Response, next: NextFunction): P
     const normalizedEmail = email.trim().toLowerCase();
     const normalizedUsername = username.trim().toLowerCase();
 
+    // Purge any lingering expired unverified users
+    await purgeExpiredUnverifiedUsers();
+
     // Check if user already exists
     const existingUser = await User.findOne({
       $or: [{ email: normalizedEmail }, { username: normalizedUsername }],
     });
 
     if (existingUser) {
-      if (existingUser.email === normalizedEmail) {
-        throw new AppError('An account with this email address already exists.', 409);
+      // If the existing user never verified their email and the 20-minute window expired, delete it and allow registration
+      if (
+        !existingUser.isEmailVerified &&
+        existingUser.emailVerificationExpires &&
+        existingUser.emailVerificationExpires.getTime() < Date.now()
+      ) {
+        await User.deleteOne({ _id: existingUser._id });
+      } else {
+        if (existingUser.email === normalizedEmail) {
+          throw new AppError('An account with this email address already exists.', 409);
+        }
+        throw new AppError('This username is already taken. Please choose another.', 409);
       }
-      throw new AppError('This username is already taken. Please choose another.', 409);
     }
 
-    // Generate 6-digit verification code and expiration (15 minutes)
+    // Generate 6-digit verification code and expiration (20 minutes)
     const verificationCode = crypto.randomInt(100000, 1000000).toString();
-    const verificationExpires = new Date(Date.now() + 15 * 60 * 1000);
+    const verificationExpires = new Date(Date.now() + 20 * 60 * 1000);
 
     // Hash password and store user record with verification details
     const hashedPassword = hashPassword(password);
     const newUser = await User.create({
+      name: name.trim(),
       username: normalizedUsername,
       email: normalizedEmail,
       password: hashedPassword,
@@ -63,6 +92,7 @@ export const signUp = async (req: Request, res: Response, next: NextFunction): P
     await sendVerificationEmail({
       toEmail: normalizedEmail,
       username: normalizedUsername,
+      name: newUser.name,
       code: verificationCode,
     });
 
@@ -74,6 +104,7 @@ export const signUp = async (req: Request, res: Response, next: NextFunction): P
         isEmailVerified: false,
         user: {
           id: newUser._id,
+          name: newUser.name,
           username: newUser.username,
           email: newUser.email,
           agreedToTerms: newUser.agreedToTerms,
@@ -118,7 +149,11 @@ export const verifyEmail = async (req: Request, res: Response, next: NextFunctio
     }
 
     if (!user.emailVerificationExpires || user.emailVerificationExpires.getTime() < Date.now()) {
-      throw new AppError('This verification code has expired. Please request a new one.', 400);
+      await User.deleteOne({ _id: user._id });
+      throw new AppError(
+        'This verification code has expired after 20 minutes. The unverified registration was removed. Please sign up again.',
+        400
+      );
     }
 
     if (user.emailVerificationCode !== code.trim()) {
@@ -138,6 +173,7 @@ export const verifyEmail = async (req: Request, res: Response, next: NextFunctio
         isEmailVerified: true,
         user: {
           id: user._id,
+          name: user.name || user.username,
           username: user.username,
           email: user.email,
           isEmailVerified: true,
@@ -175,10 +211,18 @@ export const resendVerification = async (req: Request, res: Response, next: Next
       return;
     }
 
-    // Generate fresh 6-digit code and update expiry
+    if (!user.emailVerificationExpires || user.emailVerificationExpires.getTime() < Date.now()) {
+      await User.deleteOne({ _id: user._id });
+      throw new AppError(
+        'The 20-minute verification window has expired. The unverified account was removed. Please sign up again.',
+        400
+      );
+    }
+
+    // Generate fresh 6-digit code and update expiry (20 minutes)
     const newCode = crypto.randomInt(100000, 1000000).toString();
     user.emailVerificationCode = newCode;
-    user.emailVerificationExpires = new Date(Date.now() + 15 * 60 * 1000);
+    user.emailVerificationExpires = new Date(Date.now() + 20 * 60 * 1000);
     await user.save();
 
     // Send email via Brevo
@@ -224,6 +268,14 @@ export const signIn = async (req: Request, res: Response, next: NextFunction): P
 
     // Check email verification status
     if (!user.isEmailVerified) {
+      if (user.emailVerificationExpires && user.emailVerificationExpires.getTime() < Date.now()) {
+        await User.deleteOne({ _id: user._id });
+        throw new AppError(
+          'Your verification code expired after 20 minutes. The unverified account was removed. Please sign up again.',
+          400
+        );
+      }
+
       res.status(403).json({
         success: false,
         error: {
@@ -248,6 +300,7 @@ export const signIn = async (req: Request, res: Response, next: NextFunction): P
         token,
         user: {
           id: user._id,
+          name: user.name || user.username,
           username: user.username,
           email: user.email,
           agreedToTerms: user.agreedToTerms,
@@ -274,6 +327,21 @@ export const purgeExpiredResetCodes = async (): Promise<void> => {
     );
   } catch (err) {
     console.error('[Auth] Error purging expired password reset codes:', err);
+  }
+};
+
+// Purge any unverified users whose 20-minute OTP window has expired from MongoDB
+export const purgeExpiredUnverifiedUsers = async (): Promise<void> => {
+  try {
+    const result = await User.deleteMany({
+      isEmailVerified: false,
+      emailVerificationExpires: { $ne: null, $lt: new Date() },
+    });
+    if (result.deletedCount && result.deletedCount > 0) {
+      console.log(`[Auth Cleanup] Purged ${result.deletedCount} unverified account(s) with expired OTP (> 20 minutes).`);
+    }
+  } catch (err) {
+    console.error('[Auth] Error purging expired unverified accounts:', err);
   }
 };
 
