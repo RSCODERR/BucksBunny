@@ -4,8 +4,6 @@ import {
   User,
   Check,
   ArrowUpRight,
-  Calendar,
-  ChevronDown,
   Plus,
   RefreshCw,
   AlertCircle,
@@ -63,7 +61,6 @@ export const Overview: React.FC<OverviewProps> = ({
   const [overviewData, setOverviewData] = useState<ExpenseOverviewData | null>(null);
   const [deletingTxId, setDeletingTxId] = useState<string | null>(null);
   const [actionSuccessMsg, setActionSuccessMsg] = useState<string | null>(null);
-  const [selectedCycle] = useState<string>('October 2024');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   const fetchOverview = useCallback(async () => {
@@ -217,13 +214,6 @@ export const Overview: React.FC<OverviewProps> = ({
         </div>
 
         <div className="flex items-center gap-3">
-          {/* Cycle Selector Button */}
-          <div className="inline-flex items-center gap-2 px-3 py-2 bg-white border border-[#CBD5E1] rounded-lg text-xs font-semibold text-[#374151] shadow-xs cursor-pointer hover:bg-gray-50 transition-colors">
-            <Calendar className="w-3.5 h-3.5 text-[#4B5563]" />
-            <span>{selectedCycle}</span>
-            <ChevronDown className="w-3.5 h-3.5 text-[#6B7280]" />
-          </div>
-
           {/* + Add expense Button */}
           <button
             type="button"
@@ -472,7 +462,6 @@ export const Overview: React.FC<OverviewProps> = ({
                         <tr className="text-[#6B7280] border-b border-[#F1F5F9]">
                           <th className="text-left py-2 font-semibold">Period</th>
                           <th className="text-center py-2 font-semibold">Spending</th>
-                          <th className="text-center py-2 font-semibold">Variance</th>
                           <th className="text-right py-2 font-semibold">Status</th>
                         </tr>
                       </thead>
@@ -484,11 +473,6 @@ export const Overview: React.FC<OverviewProps> = ({
                             </td>
                             <td className="py-2.5 text-center font-mono font-bold text-[#111827]">
                               {formatRupees(row.spending)}
-                            </td>
-                            <td className={`py-2.5 text-center font-mono font-medium ${
-                              row.variance.startsWith('+') ? 'text-[#059669]' : 'text-[#DC2626]'
-                            }`}>
-                              {row.variance}
                             </td>
                             <td className="py-2.5 text-right">
                               <span

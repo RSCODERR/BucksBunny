@@ -8,8 +8,6 @@ import {
   TrendingUp,
   ArrowDownToLine,
   Settings,
-  Calendar,
-  ChevronDown,
   LogOut,
   Menu,
   X,
@@ -46,7 +44,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
   children,
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [selectedCycle] = useState('October 2024');
 
   const navItems: Array<{
     id: DashboardTab;
@@ -192,17 +189,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       <div className="flex-1 flex flex-col min-w-0">
         {/* Top Header Bar */}
         <header className="hidden md:flex h-16 bg-white border-b border-[#CBD5E1] px-6 lg:px-8 items-center justify-between sticky top-0 z-30">
-          {/* Breadcrumb & Month Indicator */}
+          {/* Breadcrumb */}
           <div className="flex items-center gap-2 text-xs">
             <span className="font-bold uppercase tracking-wider text-[#6B7280]">
               PERSONAL LEDGER
             </span>
-            <span className="text-[#CBD5E1] font-semibold">/</span>
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-[#EAF3EE] text-[#064E3B] font-semibold rounded-md border border-[#D1E2D9] cursor-pointer hover:bg-[#DFECE5] transition-colors">
-              <Calendar className="w-3.5 h-3.5 text-[#064E3B]" />
-              <span>{selectedCycle}</span>
-              <ChevronDown className="w-3 h-3 text-[#064E3B]" />
-            </div>
           </div>
 
           {/* Right Header Actions */}

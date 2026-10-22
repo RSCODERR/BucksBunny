@@ -449,7 +449,9 @@ class NotificationService {
   }
 
   /**
-   * Trigger repayment_recorded notification for the counterparty
+   * Trigger repayment_recorded notification for the counterparty.
+   * Notification is sent only if the user was owed money (isReceivable === true).
+   * If someone else paid upfront (isReceivable === false), no notification is sent.
    */
   async notifyRepaymentRecorded(
     repayment: any,
@@ -457,6 +459,11 @@ class NotificationService {
     counterpartyName: string
   ): Promise<void> {
     try {
+      // Strictly notify only if the user was owed money and received repayment
+      if (!repayment || repayment.isReceivable !== true) {
+        return;
+      }
+
       const friend = await this.getEligibleFriendParticipant(recorderUserId, counterpartyName);
       if (!friend) return;
 
@@ -464,9 +471,7 @@ class NotificationService {
       const recorderName = recorder?.name || recorder?.username || 'A friend';
       const amountFormatted = `₹${(repayment.amountInPaise / 100).toFixed(2)}`;
 
-      const message = repayment.isReceivable
-        ? `${recorderName} recorded receiving a repayment of ${amountFormatted} from you.`
-        : `${recorderName} recorded a repayment of ${amountFormatted} to you.`;
+      const message = `${recorderName} recorded receiving a repayment of ${amountFormatted} from you.`;
 
       await this.createNotification({
         recipientUserId: friend.friendUserId,
@@ -479,7 +484,7 @@ class NotificationService {
         data: {
           repaymentId: repayment._id.toString(),
           amountInPaise: repayment.amountInPaise,
-          isReceivableForRecorder: repayment.isReceivable,
+          isReceivableForRecorder: true,
         },
         deduplicationKey: `repayment_${repayment._id}_${friend.friendUserId}`,
       });

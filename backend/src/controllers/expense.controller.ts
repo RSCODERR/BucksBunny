@@ -1296,7 +1296,6 @@ export const getExpenseOverview = async (req: Request, res: Response, next: Next
       monthlyTable.push({
         period: monthFull,
         spending: mTotal / 100,
-        variance: isCurrentMonth ? '+16.9%' : (i === 1 ? '-4.5%' : '+4.2%'),
         status: isCurrentMonth ? 'Active' : 'Closed',
       });
     }

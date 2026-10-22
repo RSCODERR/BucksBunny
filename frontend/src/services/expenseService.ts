@@ -152,7 +152,7 @@ export interface MonthlyTrendItem {
 export interface MonthlyTableItem {
   period: string;
   spending: number;
-  variance: string;
+  variance?: string;
   status: 'Active' | 'Closed';
 }
 
