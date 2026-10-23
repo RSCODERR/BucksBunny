@@ -232,7 +232,7 @@ export const RecordRepaymentModal: React.FC<RecordRepaymentModalProps> = ({
             <label className="block text-xs font-bold uppercase tracking-wider text-[#4B5563]">
               Settlement Method
             </label>
-            <div className="grid grid-cols-2 gap-2 p-1 bg-[#F1F5F9] border border-[#CBD5E1] rounded-lg">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 sm:gap-2 p-1 bg-[#F1F5F9] border border-[#CBD5E1] rounded-lg">
               <button
                 type="button"
                 onClick={() => {
@@ -244,7 +244,7 @@ export const RecordRepaymentModal: React.FC<RecordRepaymentModalProps> = ({
                       : `Settled full payment to ${calculation.counterparty}`
                   );
                 }}
-                className={`py-2 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                className={`py-2 px-2 text-xs font-bold rounded-md transition-colors cursor-pointer text-center ${
                   settlementType === 'FULL'
                     ? 'bg-[#064E3B] text-white shadow-xs'
                     : 'text-[#6B7280] hover:text-[#111827]'
@@ -263,7 +263,7 @@ export const RecordRepaymentModal: React.FC<RecordRepaymentModalProps> = ({
                       : `Partial payment to ${calculation.counterparty}`
                   );
                 }}
-                className={`py-2 text-xs font-bold rounded-md transition-colors cursor-pointer ${
+                className={`py-2 px-2 text-xs font-bold rounded-md transition-colors cursor-pointer text-center ${
                   settlementType === 'CUSTOM'
                     ? 'bg-white text-[#064E3B] shadow-xs'
                     : 'text-[#6B7280] hover:text-[#111827]'
@@ -377,7 +377,7 @@ export const RecordRepaymentModal: React.FC<RecordRepaymentModalProps> = ({
           </div>
 
           {/* Payment Channel & Date Grid */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <label className="block text-[11px] font-bold uppercase tracking-wider text-[#4B5563]">
                 Payment Channel
@@ -426,18 +426,18 @@ export const RecordRepaymentModal: React.FC<RecordRepaymentModalProps> = ({
           </div>
 
           {/* Footer Actions */}
-          <div className="pt-2 flex items-center justify-end gap-2.5 border-t border-[#CBD5E1]">
+          <div className="pt-2 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-end gap-2.5 border-t border-[#CBD5E1]">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-[#4B5563] hover:text-[#111827] transition-colors cursor-pointer"
+              className="w-full sm:w-auto px-4 py-2 text-xs font-semibold text-[#4B5563] hover:text-[#111827] transition-colors cursor-pointer text-center"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting || calculation.validAmount <= 0}
-              className="px-4 py-2 bg-[#064E3B] hover:bg-[#04392B] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50 shadow-xs flex items-center gap-1.5"
+              className="w-full sm:w-auto px-4 py-2.5 bg-[#064E3B] hover:bg-[#04392B] text-white text-xs font-bold rounded-lg transition-colors cursor-pointer disabled:opacity-50 shadow-xs flex items-center justify-center gap-1.5"
             >
               {isSubmitting ? (
                 <>

@@ -142,12 +142,12 @@ export const Insights: React.FC<InsightsProps> = ({
         </div>
 
         {/* Date Range Selector */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex rounded-lg border border-[#CBD5E1] bg-white p-1 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 w-full sm:w-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-4 p-1 bg-white border border-[#CBD5E1] rounded-lg shadow-xs w-full sm:w-auto">
             <button
               type="button"
               onClick={() => handleRangeChange('this-month')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer text-center ${
                 selectedRange === 'this-month'
                   ? 'bg-[#064E3B] text-white shadow-xs'
                   : 'text-[#4B5563] hover:text-[#111827] hover:bg-[#F3F4F6]'
@@ -158,7 +158,7 @@ export const Insights: React.FC<InsightsProps> = ({
             <button
               type="button"
               onClick={() => handleRangeChange('last-month')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer text-center ${
                 selectedRange === 'last-month'
                   ? 'bg-[#064E3B] text-white shadow-xs'
                   : 'text-[#4B5563] hover:text-[#111827] hover:bg-[#F3F4F6]'
@@ -169,7 +169,7 @@ export const Insights: React.FC<InsightsProps> = ({
             <button
               type="button"
               onClick={() => handleRangeChange('last-3-months')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer text-center ${
                 selectedRange === 'last-3-months'
                   ? 'bg-[#064E3B] text-white shadow-xs'
                   : 'text-[#4B5563] hover:text-[#111827] hover:bg-[#F3F4F6]'
@@ -180,7 +180,7 @@ export const Insights: React.FC<InsightsProps> = ({
             <button
               type="button"
               onClick={() => handleRangeChange('custom')}
-              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer text-center ${
                 selectedRange === 'custom'
                   ? 'bg-[#064E3B] text-white shadow-xs'
                   : 'text-[#4B5563] hover:text-[#111827] hover:bg-[#F3F4F6]'
@@ -201,7 +201,7 @@ export const Insights: React.FC<InsightsProps> = ({
             }}
             disabled={loading}
             title="Refresh insights"
-            className="p-2 text-[#4B5563] hover:text-[#111827] bg-white border border-[#CBD5E1] rounded-lg shadow-xs hover:bg-[#F8FAF9] transition-colors disabled:opacity-50 cursor-pointer"
+            className="self-end sm:self-auto p-2 text-[#4B5563] hover:text-[#111827] bg-white border border-[#CBD5E1] rounded-lg shadow-xs hover:bg-[#F8FAF9] transition-colors disabled:opacity-50 cursor-pointer shrink-0"
           >
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
           </button>
@@ -306,21 +306,21 @@ export const Insights: React.FC<InsightsProps> = ({
       {insightsData && (
         <>
           {/* Active Period Header Indicator */}
-          <div className="flex flex-wrap items-center justify-between gap-2 px-1">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-[#1F2937] uppercase tracking-wider">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-bold text-[#1F2937] uppercase tracking-wider whitespace-nowrap">
                 Viewing Period:
               </span>
-              <span className="text-xs font-semibold text-[#064E3B] bg-[#ECFDF5] px-2.5 py-1 rounded-md border border-[#A7F3D0]">
+              <span className="text-xs font-semibold text-[#064E3B] bg-[#ECFDF5] px-2.5 py-1 rounded-md border border-[#A7F3D0] whitespace-nowrap">
                 {insightsData.period.label}
               </span>
               {insightsData.period.isPartial && insightsData.period.partialNotice && (
-                <span className="text-xs text-[#6B7280] italic">
-                  ({insightsData.period.partialNotice})
+                <span className="text-xs text-[#6B7280]">
+                  • {insightsData.period.partialNotice}
                 </span>
               )}
             </div>
-            <span className="text-xs text-[#4B5563]">
+            <span className="text-xs text-[#4B5563] whitespace-nowrap">
               {insightsData.summary.transactionCount} transaction
               {insightsData.summary.transactionCount === 1 ? '' : 's'} recorded in this period
             </span>

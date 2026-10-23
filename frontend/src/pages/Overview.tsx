@@ -528,7 +528,7 @@ export const Overview: React.FC<OverviewProps> = ({
                       return (
                         <div
                           key={debt.id}
-                          className="py-3.5 flex items-center justify-between gap-3"
+                          className="py-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
                         >
                           {/* Left side details */}
                           <div className="min-w-0 flex-1">
@@ -567,11 +567,11 @@ export const Overview: React.FC<OverviewProps> = ({
                           </div>
 
                           {/* Right action button redirects to Debts & Dues */}
-                          <div className="shrink-0 flex items-center gap-1.5">
+                          <div className="shrink-0 flex items-center gap-1.5 w-full sm:w-auto justify-end">
                             <button
                               type="button"
                               onClick={() => onNavigateToTab?.('debts')}
-                              className="bg-white border border-[#CBD5E1] hover:bg-[#F8FAF9] text-[#064E3B] text-xs font-semibold px-3 py-1.5 rounded-lg shadow-xs cursor-pointer transition-colors flex items-center gap-1"
+                              className="w-full sm:w-auto bg-white border border-[#CBD5E1] hover:bg-[#F8FAF9] text-[#064E3B] text-xs font-semibold px-3 py-1.5 rounded-lg shadow-xs cursor-pointer transition-colors flex items-center justify-center gap-1"
                             >
                               <span>Manage in Debts & Dues</span>
                               <ChevronRight className="w-3.5 h-3.5 text-[#064E3B]" />
@@ -616,17 +616,83 @@ export const Overview: React.FC<OverviewProps> = ({
               </div>
             </div>
 
-            {/* Transactions Table */}
-            <div className="overflow-x-auto border border-[#E5E7EB] rounded-lg">
+            {/* Mobile / Tablet Card List View (< lg) */}
+            <div className="lg:hidden divide-y divide-[#E5E7EB] border border-[#E5E7EB] rounded-lg bg-white overflow-hidden">
+              {filteredTransactions.length > 0 ? (
+                filteredTransactions.map((tx) => {
+                  const Icon = getTransactionIcon(tx.category, tx.title);
+                  const isDeleting = deletingTxId === tx.id;
+                  const isOwed = tx.splitStatus.toLowerCase().includes('you owe');
+
+                  return (
+                    <div key={tx.id} className="p-3.5 space-y-2 hover:bg-[#F9FAFB] transition-colors">
+                      <div className="flex items-start justify-between gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-[#F3F4F6] border border-[#E5E7EB] flex items-center justify-center text-[#4B5563] shrink-0">
+                            <Icon className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-bold text-xs text-[#111827] truncate">
+                              {tx.merchant || tx.title}
+                            </div>
+                            <div className="text-[11px] text-[#6B7280]">
+                              {tx.date}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <div className="font-mono font-bold text-sm text-[#111827]">
+                            {formatRupees(tx.amountInRupees)}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs pt-0.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="bg-[#F3F4F6] text-[#374151] border border-[#E5E7EB] text-[10px] font-semibold px-2 py-0.5 rounded-full">
+                            {tx.category}
+                          </span>
+                          <span className={`text-[11px] ${isOwed ? 'text-[#DC2626] font-semibold' : 'text-[#4B5563]'}`}>
+                            {tx.splitStatus}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={isDeleting}
+                          onClick={() => handleDeleteExpense(tx.id, tx.title)}
+                          title="Delete transaction"
+                          className="p-1 text-[#9CA3AF] hover:text-[#DC2626] rounded transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {isDeleting ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#DC2626]" />
+                          ) : (
+                            <Trash2 className="w-3.5 h-3.5" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="py-8 text-center text-xs text-[#6B7280]">
+                  {searchQuery ? 'No transactions matching your search.' : 'No transactions recorded yet.'}
+                </div>
+              )}
+            </div>
+
+            {/* Desktop Transactions Table (>= lg) */}
+            <div className="hidden lg:block overflow-x-auto border border-[#E5E7EB] rounded-lg no-scrollbar">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-[#F4F7F5] border-b border-[#E5E7EB] text-[#4B5563]">
-                    <th className="py-3 px-4 font-semibold">Merchant / Description</th>
-                    <th className="py-3 px-4 font-semibold">Category</th>
-                    <th className="py-3 px-4 font-semibold">Date</th>
-                    <th className="py-3 px-4 font-semibold">Split Status</th>
-                    <th className="py-3 px-4 font-semibold text-right">Amount</th>
-                    <th className="py-3 px-4 font-semibold text-center">Action</th>
+                    <th className="py-3 px-4 font-semibold whitespace-nowrap">Merchant / Description</th>
+                    <th className="py-3 px-4 font-semibold whitespace-nowrap">Category</th>
+                    <th className="py-3 px-4 font-semibold whitespace-nowrap">Date</th>
+                    <th className="py-3 px-4 font-semibold whitespace-nowrap">Split Status</th>
+                    <th className="py-3 px-4 font-semibold text-right whitespace-nowrap">Amount</th>
+                    <th className="py-3 px-4 font-semibold text-center whitespace-nowrap">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F1F5F9]">

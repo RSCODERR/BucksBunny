@@ -20,6 +20,7 @@ import {
   Utensils,
   Dumbbell,
   Receipt,
+  Filter,
   X,
   ChevronLeft,
   ChevronRight,
@@ -52,6 +53,17 @@ export const Transactions: React.FC<TransactionsProps> = ({
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'amount_high' | 'amount_low'>('newest');
+  const [isFiltersOpen, setIsFiltersOpen] = useState<boolean>(false);
+
+  // Active filter count
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (selectedDateRange !== 'ALL') count++;
+    if (selectedCategory !== 'ALL') count++;
+    if (selectedType !== 'ALL') count++;
+    if (sortOrder !== 'newest') count++;
+    return count;
+  }, [selectedDateRange, selectedCategory, selectedType, sortOrder]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -275,11 +287,11 @@ export const Transactions: React.FC<TransactionsProps> = ({
         </div>
       )}
 
-      {/* Top Filter and Search Bar (Styled exactly like Image 1) */}
+      {/* Top Filter and Search Bar */}
       <div className="bg-white border border-[#CBD5E1] rounded-xl p-3 sm:p-4 shadow-xs space-y-3">
-        <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Search Box with Mint Tone */}
-          <div className="relative flex-1 min-w-[240px] max-w-md">
+          <div className="relative flex-1">
             <Search className="w-4 h-4 text-[#064E3B] absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -299,91 +311,147 @@ export const Transactions: React.FC<TransactionsProps> = ({
             )}
           </div>
 
-          {/* Date Filter Dropdown */}
-          <div className="relative">
-            <select
-              value={selectedDateRange}
-              onChange={(e) => setSelectedDateRange(e.target.value)}
-              className="appearance-none pl-8 pr-7 py-2 text-xs font-semibold text-[#064E3B] bg-[#F0FAF4] border border-[#BDE5CE] rounded-lg focus:outline-none focus:border-[#064E3B] cursor-pointer"
-            >
-              <option value="THIS_MONTH">{currentMonthInfo.label}</option>
-              <option value="LAST_MONTH">Last Month</option>
-              <option value="LAST_30_DAYS">Last 30 Days</option>
-              <option value="ALL">All Time</option>
-            </select>
-            <Calendar className="w-3.5 h-3.5 text-[#064E3B] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            <ChevronDown className="w-3.5 h-3.5 text-[#064E3B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-
-          {/* Category Filter Dropdown */}
-          <div className="relative">
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="appearance-none pl-3 pr-7 py-2 text-xs font-semibold text-[#064E3B] bg-[#F0FAF4] border border-[#BDE5CE] rounded-lg focus:outline-none focus:border-[#064E3B] cursor-pointer"
-            >
-              <option value="ALL">All Categories</option>
-              <option value="Food & Dining">Food & Drink</option>
-              <option value="Groceries">Groceries</option>
-              <option value="Transport">Transport</option>
-              <option value="Bills & Utilities">Utilities</option>
-              <option value="Debt Settlement">Debt Settlement</option>
-              <option value="Dining Out">Dining Out</option>
-              <option value="Shopping">Shopping</option>
-              <option value="Health">Health</option>
-              <option value="Entertainment">Entertainment</option>
-              <option value="Education">Education</option>
-              <option value="Other">Other</option>
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-[#064E3B] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-
-          {/* Type Filter Dropdown */}
-          <div className="relative">
-            <select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="appearance-none pl-3 pr-7 py-2 text-xs font-semibold text-[#064E3B] bg-[#F0FAF4] border border-[#BDE5CE] rounded-lg focus:outline-none focus:border-[#064E3B] cursor-pointer"
-            >
-              <option value="ALL">All Types</option>
-              <option value="PERSONAL">Personal</option>
-              <option value="SPLIT">Split Expenses</option>
-              <option value="SETTLEMENT">Debt Settlements</option>
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-[#064E3B] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-
-          {/* Sort Button */}
+          {/* Filter Toggle Button */}
           <button
             type="button"
-            onClick={handleCycleSort}
-            className="px-3 py-2 text-xs font-semibold text-[#064E3B] bg-[#F0FAF4] border border-[#BDE5CE] hover:bg-[#E5F5EC] rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
+            onClick={() => setIsFiltersOpen((prev) => !prev)}
+            className={`px-3 py-2 text-xs font-semibold rounded-lg border transition-colors cursor-pointer flex items-center gap-1.5 shrink-0 select-none ${
+              isFiltersOpen || activeFilterCount > 0
+                ? 'bg-[#064E3B] text-white border-[#064E3B]'
+                : 'bg-[#F0FAF4] text-[#064E3B] border-[#BDE5CE] hover:bg-[#E5F5EC]'
+            }`}
           >
-            <span>
-              Date:{' '}
-              {sortOrder === 'newest'
-                ? 'Newest first'
-                : sortOrder === 'oldest'
-                ? 'Oldest first'
-                : sortOrder === 'amount_high'
-                ? 'Highest amount'
-                : 'Lowest amount'}
-            </span>
-            <ArrowUpDown className="w-3.5 h-3.5 text-[#064E3B]" />
+            <Filter className="w-3.5 h-3.5" />
+            <span>Filters</span>
+            {activeFilterCount > 0 && (
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  isFiltersOpen || activeFilterCount > 0
+                    ? 'bg-white text-[#064E3B]'
+                    : 'bg-[#064E3B] text-white'
+                }`}
+              >
+                {activeFilterCount}
+              </span>
+            )}
+            <ChevronDown
+              className={`w-3.5 h-3.5 transition-transform duration-200 ${
+                isFiltersOpen ? 'rotate-180' : ''
+              }`}
+            />
           </button>
-
-          {/* Clear Filters Button */}
-          {(searchQuery || selectedDateRange !== 'ALL' || selectedCategory !== 'ALL' || selectedType !== 'ALL' || sortOrder !== 'newest') && (
-            <button
-              type="button"
-              onClick={handleClearFilters}
-              className="px-3 py-2 text-xs font-semibold text-[#6B7280] hover:text-[#111827] bg-white border border-[#CBD5E1] hover:bg-gray-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5"
-            >
-              <FilterX className="w-3.5 h-3.5 text-[#6B7280]" />
-              <span>Clear</span>
-            </button>
-          )}
         </div>
+
+        {/* Collapsible Filter Panel under the search */}
+        {isFiltersOpen && (
+          <div className="pt-3 border-t border-[#E2E8F0] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {/* Date Filter Dropdown */}
+            <div className="relative">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[#6B7280] mb-1">
+                Timeframe
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedDateRange}
+                  onChange={(e) => setSelectedDateRange(e.target.value)}
+                  className="w-full appearance-none pl-8 pr-7 py-2 text-xs font-semibold text-[#064E3B] bg-[#F0FAF4] border border-[#BDE5CE] rounded-lg focus:outline-none focus:border-[#064E3B] cursor-pointer"
+                >
+                  <option value="THIS_MONTH">{currentMonthInfo.label}</option>
+                  <option value="LAST_MONTH">Last Month</option>
+                  <option value="LAST_30_DAYS">Last 30 Days</option>
+                  <option value="ALL">All Time</option>
+                </select>
+                <Calendar className="w-3.5 h-3.5 text-[#064E3B] absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <ChevronDown className="w-3.5 h-3.5 text-[#064E3B] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Category Filter Dropdown */}
+            <div className="relative">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[#6B7280] mb-1">
+                Category
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => setSelectedCategory(e.target.value)}
+                  className="w-full appearance-none pl-3 pr-7 py-2 text-xs font-semibold text-[#064E3B] bg-[#F0FAF4] border border-[#BDE5CE] rounded-lg focus:outline-none focus:border-[#064E3B] cursor-pointer"
+                >
+                  <option value="ALL">All Categories</option>
+                  <option value="Food & Dining">Food & Drink</option>
+                  <option value="Groceries">Groceries</option>
+                  <option value="Transport">Transport</option>
+                  <option value="Bills & Utilities">Utilities</option>
+                  <option value="Debt Settlement">Debt Settlement</option>
+                  <option value="Dining Out">Dining Out</option>
+                  <option value="Shopping">Shopping</option>
+                  <option value="Health">Health</option>
+                  <option value="Entertainment">Entertainment</option>
+                  <option value="Education">Education</option>
+                  <option value="Other">Other</option>
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-[#064E3B] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Type Filter Dropdown */}
+            <div className="relative">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[#6B7280] mb-1">
+                Entry Type
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedType}
+                  onChange={(e) => setSelectedType(e.target.value)}
+                  className="w-full appearance-none pl-3 pr-7 py-2 text-xs font-semibold text-[#064E3B] bg-[#F0FAF4] border border-[#BDE5CE] rounded-lg focus:outline-none focus:border-[#064E3B] cursor-pointer"
+                >
+                  <option value="ALL">All Types</option>
+                  <option value="PERSONAL">Personal</option>
+                  <option value="SPLIT">Split Expenses</option>
+                  <option value="SETTLEMENT">Debt Settlements</option>
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-[#064E3B] absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* Sort & Clear container */}
+            <div className="relative">
+              <label className="block text-[10px] font-bold uppercase tracking-wider text-[#6B7280] mb-1">
+                Sort & Reset
+              </label>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleCycleSort}
+                  className="flex-1 px-3 py-2 text-xs font-semibold text-[#064E3B] bg-[#F0FAF4] border border-[#BDE5CE] hover:bg-[#E5F5EC] rounded-lg transition-colors cursor-pointer flex items-center justify-between gap-1.5"
+                >
+                  <span className="truncate">
+                    {sortOrder === 'newest'
+                      ? 'Newest'
+                      : sortOrder === 'oldest'
+                      ? 'Oldest'
+                      : sortOrder === 'amount_high'
+                      ? 'Highest'
+                      : 'Lowest'}
+                  </span>
+                  <ArrowUpDown className="w-3.5 h-3.5 text-[#064E3B] shrink-0" />
+                </button>
+
+                {(searchQuery || selectedDateRange !== 'ALL' || selectedCategory !== 'ALL' || selectedType !== 'ALL' || sortOrder !== 'newest') && (
+                  <button
+                    type="button"
+                    onClick={handleClearFilters}
+                    className="px-3 py-2 text-xs font-semibold text-[#6B7280] hover:text-[#111827] bg-white border border-[#CBD5E1] hover:bg-gray-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1 shrink-0"
+                    title="Reset all filters"
+                  >
+                    <FilterX className="w-3.5 h-3.5 text-[#6B7280]" />
+                    <span>Clear</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Subheader: Count, Aggregated Turnover & Active Filter Badges */}
@@ -457,17 +525,144 @@ export const Transactions: React.FC<TransactionsProps> = ({
             )}
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+          <>
+            {/* Mobile / Tablet Card List View (< lg) */}
+            <div className="lg:hidden divide-y divide-[#E2E8F0]">
+              {paginatedTransactions.map((t) => {
+                const isSettlement = t.type === 'DEBT_SETTLEMENT';
+                const isCredit = t.isCredit;
+                const isOwe = t.splitResponsibility.kind === 'SPLIT_OWE';
+
+                return (
+                  <div key={t.id} className="p-3.5 space-y-2.5 hover:bg-[#F9FBFA] transition-colors">
+                    {/* Top: Icon + Merchant/Title + Amount */}
+                    <div className="flex items-start justify-between gap-2.5">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="w-9 h-9 rounded-lg bg-[#E6F4EA] border border-[#BCE3C8] flex items-center justify-center text-[#064E3B] shrink-0">
+                          {getTransactionIcon(t.category, t.title, t.merchant)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-bold text-xs text-[#111827] truncate">
+                            {t.merchant || t.title}
+                          </div>
+                          <div className="text-[11px] text-[#6B7280] truncate">
+                            {t.formattedDate} • {t.time}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <div className="font-mono font-bold text-sm text-[#111827]">
+                          ₹{t.totalAmountInRupees.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </div>
+                        <div className="text-[11px] font-semibold mt-0.5">
+                          {isCredit ? (
+                            <span className="font-mono font-bold text-[#059669]">
+                              +₹{Math.abs(t.yourShareInRupees).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          ) : isOwe ? (
+                            <span className="font-mono font-bold text-[#DC2626]">
+                              ₹{Math.abs(t.yourShareInRupees).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          ) : (
+                            <span className="font-mono font-bold text-[#111827]">
+                              ₹{t.yourShareInRupees.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          )}
+                          <span className="text-[#6B7280] font-normal ml-1">share</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Middle: Badges (Category & Responsibility) */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span
+                          className={`inline-flex items-center px-2 py-0.5 rounded font-semibold border ${
+                            isSettlement
+                              ? 'bg-[#ECFDF5] text-[#059669] border-[#A7F3D0]'
+                              : 'bg-[#F1F5F9] text-[#475569] border-[#CBD5E1]'
+                          }`}
+                        >
+                          {t.category}
+                        </span>
+
+                        {t.splitResponsibility.kind === 'PERSONAL' ? (
+                          <span className="text-[#6B7280] flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-gray-400"></span>
+                            <span>Personal</span>
+                          </span>
+                        ) : t.splitResponsibility.kind === 'SETTLEMENT' ? (
+                          <span className="text-[#059669] flex items-center gap-1 font-medium">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#059669]"></span>
+                            <span>{t.splitResponsibility.headline}</span>
+                          </span>
+                        ) : t.splitResponsibility.kind === 'SPLIT_OWE' ? (
+                          <span className="text-[#DC2626] font-semibold flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#DC2626]"></span>
+                            <span>{t.splitResponsibility.headline}</span>
+                          </span>
+                        ) : (
+                          <span className="text-[#059669] font-medium flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#059669]"></span>
+                            <span>{t.splitResponsibility.headline}</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-1 shrink-0 ml-auto">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedTxForView(t)}
+                          title="View details"
+                          className="p-1.5 text-[#6B7280] hover:text-[#111827] hover:bg-gray-100 rounded transition-colors cursor-pointer"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (t.type === 'EXPENSE') {
+                              setEditingTx(t);
+                            } else {
+                              setSelectedTxForView(t);
+                            }
+                          }}
+                          title={t.type === 'EXPENSE' ? 'Edit expense' : 'View settlement details'}
+                          className="p-1.5 text-[#6B7280] hover:text-[#064E3B] hover:bg-[#E8F3EE] rounded transition-colors cursor-pointer"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setDeletingTx(t)}
+                          title="Delete transaction"
+                          className="p-1.5 text-[#6B7280] hover:text-[#DC2626] hover:bg-[#FEF2F2] rounded transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Desktop Table View (>= lg) */}
+            <div className="hidden lg:block overflow-x-auto no-scrollbar">
+              <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="border-b border-[#CBD5E1] bg-[#F8FAF9] text-[11px] font-bold text-[#4B5563] uppercase tracking-wider">
-                  <th className="py-3.5 px-4 font-bold">DATE & TIME</th>
-                  <th className="py-3.5 px-4 font-bold">MERCHANT / TITLE</th>
-                  <th className="py-3.5 px-4 font-bold">CATEGORY</th>
-                  <th className="py-3.5 px-4 font-bold">SPLIT & RESPONSIBILITY</th>
-                  <th className="py-3.5 px-4 font-bold text-right">TOTAL AMOUNT</th>
-                  <th className="py-3.5 px-4 font-bold text-right">YOUR SHARE</th>
-                  <th className="py-3.5 px-4 font-bold text-center">ACTIONS</th>
+                  <th className="py-3.5 px-4 font-bold whitespace-nowrap">DATE & TIME</th>
+                  <th className="py-3.5 px-4 font-bold whitespace-nowrap">MERCHANT / TITLE</th>
+                  <th className="py-3.5 px-4 font-bold whitespace-nowrap">CATEGORY</th>
+                  <th className="py-3.5 px-4 font-bold whitespace-nowrap">SPLIT & RESPONSIBILITY</th>
+                  <th className="py-3.5 px-4 font-bold text-right whitespace-nowrap">TOTAL AMOUNT</th>
+                  <th className="py-3.5 px-4 font-bold text-right whitespace-nowrap">YOUR SHARE</th>
+                  <th className="py-3.5 px-4 font-bold text-center whitespace-nowrap">ACTIONS</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E2E8F0] text-xs">
@@ -626,7 +821,8 @@ export const Transactions: React.FC<TransactionsProps> = ({
               </tbody>
             </table>
           </div>
-        )}
+        </>
+      )}
 
         {/* Pagination Row (Styled exactly like Image 1) */}
         <div className="p-3.5 sm:px-5 sm:py-3 border-t border-[#E2E8F0] bg-white flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#4B5563]">
@@ -777,7 +973,7 @@ export const Transactions: React.FC<TransactionsProps> = ({
               </div>
 
               {/* Metadata attributes */}
-              <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                 <div className="p-3 bg-white border border-[#E2E8F0] rounded-lg">
                   <span className="text-[10px] font-bold uppercase text-[#6B7280] block">
                     Merchant / Payee

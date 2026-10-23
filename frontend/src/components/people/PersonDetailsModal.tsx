@@ -187,7 +187,7 @@ export const PersonDetailsModal: React.FC<PersonDetailsModalProps> = ({
                   )}
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                   {balance.hasActiveDebt && balance.balanceInRupees > 0 ? (
                     <div className="flex items-baseline gap-1.5">
                       <span
@@ -223,7 +223,7 @@ export const PersonDetailsModal: React.FC<PersonDetailsModalProps> = ({
                           person.name
                         );
                       }}
-                      className="px-3.5 py-1.5 bg-[#064E3B] hover:bg-[#04392B] text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer shadow-xs"
+                      className="w-full sm:w-auto px-3.5 py-1.5 bg-[#064E3B] hover:bg-[#04392B] text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer shadow-xs text-center"
                     >
                       Record Repayment
                     </button>
@@ -250,7 +250,7 @@ export const PersonDetailsModal: React.FC<PersonDetailsModalProps> = ({
                   </div>
                 ) : person.isLinked && person.linkedUser ? (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                       <div>
                         <div className="font-semibold text-[#111827]">
                           Linked Registered Account
@@ -266,7 +266,7 @@ export const PersonDetailsModal: React.FC<PersonDetailsModalProps> = ({
                             const pItem = asPersonItem();
                             if (pItem) onRequestUnlink(pItem);
                           }}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#FDF2F2] hover:bg-[#FEE2E2] text-[#DC2626] border border-[#FCA5A5] text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                          className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-[#FDF2F2] hover:bg-[#FEE2E2] text-[#DC2626] border border-[#FCA5A5] text-xs font-semibold rounded-lg transition-colors cursor-pointer"
                         >
                           <Link2Off className="w-3.5 h-3.5" />
                           <span>Unlink Account</span>
@@ -279,7 +279,7 @@ export const PersonDetailsModal: React.FC<PersonDetailsModalProps> = ({
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between text-xs">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                       <div>
                         <div className="font-semibold text-[#111827]">
                           Manual Contact (Not Linked)
@@ -294,7 +294,7 @@ export const PersonDetailsModal: React.FC<PersonDetailsModalProps> = ({
                           const pItem = asPersonItem();
                           if (pItem) onRequestLink(pItem);
                         }}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-[#F8FAF9] text-[#064E3B] border border-[#CBD5E1] text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                        className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white hover:bg-[#F8FAF9] text-[#064E3B] border border-[#CBD5E1] text-xs font-semibold rounded-lg transition-colors cursor-pointer"
                       >
                         <Link2 className="w-3.5 h-3.5" />
                         <span>Link Account</span>

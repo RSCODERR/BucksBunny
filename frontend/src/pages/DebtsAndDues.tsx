@@ -222,24 +222,24 @@ export const DebtsAndDues: React.FC<DebtsAndDuesProps> = ({
       {/* Top Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Card 1: Owed to Me */}
-        <div className="p-5 bg-white border border-[#CBD5E1] rounded-xl shadow-xs flex items-center justify-between">
-          <div className="flex items-start gap-3.5">
+        <div className="p-4 sm:p-5 bg-white border border-[#CBD5E1] rounded-xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3.5 min-w-0">
             <div className="w-10 h-10 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] flex items-center justify-center text-[#059669] shrink-0">
               <ArrowDownLeft className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="text-sm font-bold text-[#111827]">Owed to Me</h3>
-              <p className="text-xs text-[#6B7280] mt-0.5">
+              <p className="text-xs text-[#6B7280] mt-0.5 leading-relaxed">
                 Outstanding money friends and colleagues need to return
               </p>
             </div>
           </div>
-          <div className="text-right">
+          <div className="flex sm:flex-col items-baseline sm:items-end justify-between sm:justify-center pt-2 sm:pt-0 border-t sm:border-t-0 border-[#F1F5F9] shrink-0">
             <span className="text-xl sm:text-2xl font-mono font-extrabold text-[#111827]">
               ₹{totalOwedToMe.toFixed(2)}
             </span>
-            <div className="mt-0.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1] px-2 py-0.5 rounded">
+            <div className="sm:mt-1">
+              <span className="inline-block text-[10px] font-bold uppercase tracking-wider bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1] px-2 py-0.5 rounded whitespace-nowrap">
                 {owedToMe.length} {owedToMe.length === 1 ? 'BALANCE' : 'BALANCES'}
               </span>
             </div>
@@ -247,24 +247,24 @@ export const DebtsAndDues: React.FC<DebtsAndDuesProps> = ({
         </div>
 
         {/* Card 2: I Owe */}
-        <div className="p-5 bg-white border border-[#CBD5E1] rounded-xl shadow-xs flex items-center justify-between">
-          <div className="flex items-start gap-3.5">
+        <div className="p-4 sm:p-5 bg-white border border-[#CBD5E1] rounded-xl shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-start gap-3.5 min-w-0">
             <div className="w-10 h-10 rounded-lg bg-[#FEF2F2] border border-[#FECACA] flex items-center justify-center text-[#DC2626] shrink-0">
               <ArrowUpRight className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h3 className="text-sm font-bold text-[#111827]">I Owe</h3>
-              <p className="text-xs text-[#6B7280] mt-0.5">
+              <p className="text-xs text-[#6B7280] mt-0.5 leading-relaxed">
                 Pending liabilities you need to return
               </p>
             </div>
           </div>
-          <div className="text-right">
+          <div className="flex sm:flex-col items-baseline sm:items-end justify-between sm:justify-center pt-2 sm:pt-0 border-t sm:border-t-0 border-[#F1F5F9] shrink-0">
             <span className="text-xl sm:text-2xl font-mono font-extrabold text-[#DC2626]">
               ₹{totalIOwe.toFixed(2)}
             </span>
-            <div className="mt-0.5">
-              <span className="text-[10px] font-bold uppercase tracking-wider bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1] px-2 py-0.5 rounded">
+            <div className="sm:mt-1">
+              <span className="inline-block text-[10px] font-bold uppercase tracking-wider bg-[#F1F5F9] text-[#475569] border border-[#CBD5E1] px-2 py-0.5 rounded whitespace-nowrap">
                 {iOwe.length} {iOwe.length === 1 ? 'BALANCE' : 'BALANCES'}
               </span>
             </div>
@@ -338,11 +338,11 @@ export const DebtsAndDues: React.FC<DebtsAndDuesProps> = ({
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block">
+                    <div className="text-right shrink-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block whitespace-nowrap">
                         REMAINING DUE
                       </span>
-                      <span className="text-base sm:text-lg font-mono font-extrabold text-[#059669]">
+                      <span className="text-base sm:text-lg font-mono font-extrabold text-[#059669] whitespace-nowrap">
                         ₹{debt.amountInRupees.toFixed(2)}
                       </span>
                     </div>
@@ -461,19 +461,18 @@ export const DebtsAndDues: React.FC<DebtsAndDuesProps> = ({
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block">
+                    <div className="text-right shrink-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#6B7280] block whitespace-nowrap">
                         YOU PAY
                       </span>
-                      <span className="text-base sm:text-lg font-mono font-extrabold text-[#DC2626]">
+                      <span className="text-base sm:text-lg font-mono font-extrabold text-[#DC2626] whitespace-nowrap">
                         ₹{debt.amountInRupees.toFixed(2)}
                       </span>
                     </div>
                   </div>
 
-
                   {/* Actions */}
-                  <div className="pt-1 flex items-center justify-end gap-2">
+                  <div className="pt-2 border-t border-[#F1F5F9] flex flex-wrap items-center justify-end gap-2">
                     <button
                       type="button"
                       onClick={() => setFilterQuery(debt.creditorName)}
@@ -487,7 +486,7 @@ export const DebtsAndDues: React.FC<DebtsAndDuesProps> = ({
                       className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#064E3B] hover:bg-[#04392B] rounded-lg transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
                     >
                       <Check className="w-3.5 h-3.5" />
-                      <span>Settle Up / Record Payment</span>
+                      <span>Settle Up</span>
                     </button>
                   </div>
                 </div>

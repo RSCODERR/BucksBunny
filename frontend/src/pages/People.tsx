@@ -349,11 +349,11 @@ export const People: React.FC<PeopleProps> = ({ onOpenAddExpense }) => {
       )}
 
       {/* Navigation Tabs */}
-      <div className="flex items-center border-b border-[#E2E8F0] gap-6">
+      <div className="flex items-center border-b border-[#E2E8F0] gap-4 sm:gap-6 overflow-x-auto whitespace-nowrap pb-px">
         <button
           type="button"
           onClick={() => setActiveTab('all')}
-          className={`pb-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+          className={`pb-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
             activeTab === 'all'
               ? 'border-[#064E3B] text-[#064E3B]'
               : 'border-transparent text-[#6B7280] hover:text-[#111827]'
@@ -368,7 +368,7 @@ export const People: React.FC<PeopleProps> = ({ onOpenAddExpense }) => {
         <button
           type="button"
           onClick={() => setActiveTab('friends')}
-          className={`pb-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+          className={`pb-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
             activeTab === 'friends'
               ? 'border-[#064E3B] text-[#064E3B]'
               : 'border-transparent text-[#6B7280] hover:text-[#111827]'
@@ -383,7 +383,7 @@ export const People: React.FC<PeopleProps> = ({ onOpenAddExpense }) => {
         <button
           type="button"
           onClick={() => setActiveTab('requests')}
-          className={`pb-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer ${
+          className={`pb-3 text-xs font-bold flex items-center gap-2 border-b-2 transition-colors cursor-pointer shrink-0 ${
             activeTab === 'requests'
               ? 'border-[#064E3B] text-[#064E3B]'
               : 'border-transparent text-[#6B7280] hover:text-[#111827]'

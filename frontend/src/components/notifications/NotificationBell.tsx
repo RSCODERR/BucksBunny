@@ -159,9 +159,17 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({ onNavigateTo
         )}
       </button>
 
+      {/* Mobile Backdrop Overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/20 z-40 sm:hidden"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
       {/* Popover Dropdown Panel */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white border border-[#CBD5E1] rounded-xl shadow-lg z-50 flex flex-col overflow-hidden animate-fade-in">
+        <div className="fixed inset-x-3 top-16 sm:inset-x-auto sm:absolute sm:right-0 sm:top-full sm:mt-2 sm:w-96 bg-white border border-[#CBD5E1] rounded-xl shadow-xl z-50 flex flex-col overflow-hidden animate-fade-in max-h-[80vh]">
           {/* Header */}
           <div className="p-3.5 border-b border-[#E2E8F0] flex items-center justify-between">
             <div className="flex items-center gap-2">

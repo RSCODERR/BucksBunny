@@ -585,11 +585,11 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
       <div className="w-full max-w-[640px] max-h-[92vh] flex flex-col bg-white rounded-xl shadow-2xl border border-[#94A3B8]/60 overflow-hidden text-[#111827]">
         {/* Header */}
         <div className="p-4 sm:px-6 sm:py-4.5 border-b border-[#CBD5E1] flex items-center justify-between shrink-0 bg-white">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 pr-2">
             <h2 id="modal-title" className="text-xl sm:text-2xl font-bold tracking-tight text-[#111827]">
               {expenseToEdit ? 'Edit Expense' : 'Add New Expense'}
             </h2>
-            <span className="text-xs font-bold tracking-wider text-[#064E3B] bg-[#E8F5EC] border border-[#A6DEC0] px-2.5 py-0.5 rounded-[4px] uppercase select-none">
+            <span className="text-[11px] sm:text-xs font-bold tracking-wider text-[#064E3B] bg-[#E8F5EC] border border-[#A6DEC0] px-2 sm:px-2.5 py-0.5 rounded-[4px] uppercase select-none">
               {expenseToEdit ? 'EDIT RECORD' : 'JOURNAL DRAFT'}
             </span>
           </div>
@@ -934,45 +934,43 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
             {isSplit && (
               <div className="space-y-4 pt-3 border-t border-[#A7D7B9]">
                 {/* Payer Selection */}
-                <div className="space-y-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-[#1F2937] uppercase tracking-wider">
-                      Who paid up front?
-                    </span>
-                    <div className="inline-flex p-0.5 bg-white border border-[#CBD5E1] rounded-lg">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPayerType('YOU');
-                          markDirty();
-                        }}
-                        className={`px-3.5 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
-                          payerType === 'YOU'
-                            ? 'bg-[#064E3B] text-white shadow-xs'
-                            : 'text-[#4B5563] hover:text-[#111827]'
-                        }`}
-                      >
-                        You paid the full amount {totalPaise > 0 ? `(₹${(totalPaise / 100).toFixed(2)})` : ''}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setPayerType('OTHER');
-                          markDirty();
-                        }}
-                        className={`px-3.5 py-1.5 text-xs font-bold rounded-md transition-colors cursor-pointer ${
-                          payerType === 'OTHER'
-                            ? 'bg-[#064E3B] text-white shadow-xs'
-                            : 'text-[#4B5563] hover:text-[#111827]'
-                        }`}
-                      >
-                        Someone else paid
-                      </button>
-                    </div>
+                <div className="space-y-1.5">
+                  <span className="block text-xs font-bold text-[#1F2937] uppercase tracking-wider">
+                    Who paid up front?
+                  </span>
+                  <div className="grid grid-cols-2 p-1 bg-white border border-[#CBD5E1] rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPayerType('YOU');
+                        markDirty();
+                      }}
+                      className={`py-2 px-2 text-xs font-bold rounded-md transition-colors cursor-pointer text-center truncate ${
+                        payerType === 'YOU'
+                          ? 'bg-[#064E3B] text-white shadow-xs'
+                          : 'text-[#4B5563] hover:text-[#111827]'
+                      }`}
+                    >
+                      You paid full amount
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPayerType('OTHER');
+                        markDirty();
+                      }}
+                      className={`py-2 px-2 text-xs font-bold rounded-md transition-colors cursor-pointer text-center truncate ${
+                        payerType === 'OTHER'
+                          ? 'bg-[#064E3B] text-white shadow-xs'
+                          : 'text-[#4B5563] hover:text-[#111827]'
+                      }`}
+                    >
+                      Someone else paid
+                    </button>
                   </div>
 
                   {payerType === 'OTHER' && (
-                    <div className="flex items-center gap-2.5 p-3 bg-white border border-[#CBD5E1] rounded-lg text-sm">
+                    <div className="flex items-center gap-2.5 p-3 bg-white border border-[#CBD5E1] rounded-lg text-sm mt-2">
                       <span className="font-bold text-[#1F2937]">Select Payer:</span>
                       {participants.filter((p) => !p.isCurrentUser).length > 0 ? (
                         <select
@@ -1005,17 +1003,17 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                   <label className="block text-xs font-bold text-[#1F2937] tracking-wider uppercase">
                     ALLOCATION RULE
                   </label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 p-1 bg-white border border-[#CBD5E1] rounded-lg">
                     <button
                       type="button"
                       onClick={() => {
                         setAllocationRule('EQUAL');
                         markDirty();
                       }}
-                      className={`py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer border ${
+                      className={`py-2 px-1 text-xs font-bold rounded-md transition-colors cursor-pointer text-center truncate ${
                         allocationRule === 'EQUAL'
-                          ? 'bg-[#064E3B] text-white border-[#064E3B] shadow-xs'
-                          : 'bg-white text-[#374151] border-[#CBD5E1] hover:bg-[#E8F4EC]'
+                          ? 'bg-[#064E3B] text-white shadow-xs'
+                          : 'text-[#4B5563] hover:text-[#111827]'
                       }`}
                     >
                       Equal Split
@@ -1026,13 +1024,13 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                         setAllocationRule('CUSTOM');
                         markDirty();
                       }}
-                      className={`py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer border ${
+                      className={`py-2 px-1 text-xs font-bold rounded-md transition-colors cursor-pointer text-center truncate ${
                         allocationRule === 'CUSTOM'
-                          ? 'bg-[#064E3B] text-white border-[#064E3B] shadow-xs'
-                          : 'bg-white text-[#374151] border-[#CBD5E1] hover:bg-[#E8F4EC]'
+                          ? 'bg-[#064E3B] text-white shadow-xs'
+                          : 'text-[#4B5563] hover:text-[#111827]'
                       }`}
                     >
-                      Custom / Unequal Split
+                      Custom Split
                     </button>
                     <button
                       type="button"
@@ -1040,10 +1038,10 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                         setAllocationRule('PERCENTAGE');
                         markDirty();
                       }}
-                      className={`py-2 text-xs font-bold rounded-lg transition-colors cursor-pointer border ${
+                      className={`py-2 px-1 text-xs font-bold rounded-md transition-colors cursor-pointer text-center truncate ${
                         allocationRule === 'PERCENTAGE'
-                          ? 'bg-[#064E3B] text-white border-[#064E3B] shadow-xs'
-                          : 'bg-white text-[#374151] border-[#CBD5E1] hover:bg-[#E8F4EC]'
+                          ? 'bg-[#064E3B] text-white shadow-xs'
+                          : 'text-[#4B5563] hover:text-[#111827]'
                       }`}
                     >
                       Percentages
@@ -1058,19 +1056,7 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                     <span>INDIVIDUAL SHARE</span>
                   </div>
 
-                  {/* Empty state when only current user is in split */}
-                  {participants.length === 1 && (
-                    <div className="p-3 bg-white border border-[#CBD5E1] rounded-lg text-center space-y-1">
-                      <p className="text-xs font-bold text-[#111827]">
-                        No other people added to this split yet.
-                      </p>
-                      <p className="text-xs text-[#4B5563]">
-                        Use "+ Add Person to Split" below to add friends or participants.
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="space-y-2.5">
+                  <div className="space-y-2">
                     {participants.map((p) => {
                       const shareObj = calculatedShares.find((cs) => cs.id === p.id);
                       const shareRupees = shareObj ? shareObj.shareRupees : 0;
@@ -1078,22 +1064,22 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                       return (
                         <div
                           key={p.id}
-                          className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
+                          className={`flex items-center justify-between p-2.5 sm:p-3 rounded-lg border transition-colors gap-2.5 ${
                             p.selected
-                              ? 'bg-white border-[#94A3B8]'
+                              ? 'bg-white border-[#CBD5E1]'
                               : 'bg-neutral-50/70 border-neutral-200 opacity-60'
                           }`}
                         >
                           {/* Left: Checkbox + Avatar + Name */}
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2.5 min-w-0 flex-1">
                             <input
                               type="checkbox"
                               checked={p.selected}
                               onChange={() => handleToggleParticipant(p.id)}
-                              className="w-4.5 h-4.5 text-[#064E3B] accent-[#064E3B] rounded cursor-pointer"
+                              className="w-4 h-4 text-[#064E3B] accent-[#064E3B] rounded cursor-pointer shrink-0"
                             />
                             <div
-                              className={`w-8.5 h-8.5 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0 ${
+                              className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-extrabold shrink-0 ${
                                 p.isCurrentUser
                                   ? 'bg-[#064E3B] text-white'
                                   : 'bg-[#4B5563] text-white'
@@ -1101,13 +1087,13 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                             >
                               {getInitials(p.name)}
                             </div>
-                            <div>
-                              <p className="text-sm font-bold text-[#111827]">
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs sm:text-sm font-bold text-[#111827] truncate">
                                 {p.name}
                               </p>
-                              <p className="text-xs font-medium text-[#4B5563]">
+                              <p className="text-[11px] font-medium text-[#6B7280] truncate">
                                 {p.isCurrentUser
-                                  ? 'Settles automatically from primary account'
+                                  ? 'Settles from primary account'
                                   : payerType === 'YOU'
                                   ? 'Owed to you'
                                   : p.id === otherPayerId
@@ -1116,100 +1102,73 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                               </p>
                               {!p.isCurrentUser && (() => {
                                 const finalInfo = participantFinalForms.find((f) => f.id === p.id);
-                                if (!finalInfo) return null;
+                                if (!finalInfo || !finalInfo.hasPreviousDebt) return null;
                                 return (
-                                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
-                                    {finalInfo.hasPreviousDebt ? (
-                                      <span className="text-[#6B7280]">
-                                        Current:{' '}
-                                        {finalInfo.previousNet > 0
-                                          ? `owes ₹${finalInfo.previousNet.toFixed(2)}`
-                                          : `you owe ₹${Math.abs(finalInfo.previousNet).toFixed(2)}`}
-                                      </span>
-                                    ) : (
-                                      <span className="text-[#6B7280]">Current: ₹0.00</span>
-                                    )}
-                                    <span className="text-[#9CA3AF]">→</span>
-                                    <span
-                                      className={`font-semibold px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wider ${
-                                        finalInfo.isSettled
-                                          ? 'bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0]'
-                                          : finalInfo.projectedNet > 0
-                                          ? 'bg-[#EFF6FF] text-[#1E40AF] border border-[#BFDBFE]'
-                                          : 'bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA]'
-                                      }`}
-                                    >
-                                      {finalInfo.isSettled
-                                        ? 'Final: All settled up (₹0.00)'
-                                        : finalInfo.projectedNet > 0
-                                        ? `Final: Owes you ₹${finalInfo.projectedNet.toFixed(2)}`
-                                        : `Final: You owe ₹${Math.abs(finalInfo.projectedNet).toFixed(2)}`}
-                                    </span>
-                                  </div>
+                                  <p className="text-[10px] text-[#6B7280] truncate">
+                                    Current:{' '}
+                                    {finalInfo.previousNet > 0
+                                      ? `owes ₹${finalInfo.previousNet.toFixed(2)}`
+                                      : `you owe ₹${Math.abs(finalInfo.previousNet).toFixed(2)}`}
+                                  </p>
                                 );
                               })()}
                             </div>
                           </div>
 
                           {/* Right: Share Controls */}
-                          <div className="flex items-center gap-2">
-                            <div className="text-right">
-                              {allocationRule === 'EQUAL' && (
-                                <div>
-                                  <p className="text-base font-extrabold font-mono text-[#111827]">
-                                    ₹ {p.selected ? shareRupees.toFixed(2) : '0.00'}
-                                  </p>
-                                  <p className="text-[11px] font-medium text-[#4B5563]">
-                                    {p.isCurrentUser ? 'Your cost' : 'Calculated share'}
-                                  </p>
-                                </div>
-                              )}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {allocationRule === 'EQUAL' && (
+                              <div className="text-right">
+                                <span className="text-sm font-extrabold font-mono text-[#111827]">
+                                  ₹ {p.selected ? shareRupees.toFixed(2) : '0.00'}
+                                </span>
+                              </div>
+                            )}
 
-                              {allocationRule === 'CUSTOM' && (
-                                <div className="flex items-center gap-1.5">
-                                  <span className="text-sm font-mono font-bold text-[#111827]">₹</span>
+                            {allocationRule === 'CUSTOM' && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-xs font-mono font-bold text-[#6B7280]">₹</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  disabled={!p.selected}
+                                  value={p.customRupees}
+                                  onChange={(e) => handleCustomRupeesChange(p.id, e.target.value)}
+                                  placeholder={p.selected ? '0.00' : '-'}
+                                  className="w-20 sm:w-24 px-2 py-1 text-xs sm:text-sm font-mono font-bold text-right text-[#111827] bg-white border border-[#CBD5E1] rounded-md focus:outline-none focus:border-[#064E3B]"
+                                />
+                              </div>
+                            )}
+
+                            {allocationRule === 'PERCENTAGE' && (
+                              <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-0.5">
                                   <input
                                     type="number"
-                                    step="0.01"
+                                    step="0.1"
                                     disabled={!p.selected}
-                                    value={p.customRupees}
-                                    onChange={(e) => handleCustomRupeesChange(p.id, e.target.value)}
-                                    placeholder={p.selected ? '0.00' : '-'}
-                                    className="w-24 px-2 py-1 text-sm font-mono font-bold text-right text-[#111827] bg-white border border-[#94A3B8] rounded-md focus:outline-none focus:border-[#064E3B]"
+                                    value={p.percentage}
+                                    onChange={(e) => handlePercentageChange(p.id, e.target.value)}
+                                    placeholder="0"
+                                    className="w-14 px-1.5 py-1 text-xs font-mono font-bold text-right text-[#111827] bg-white border border-[#CBD5E1] rounded-md focus:outline-none focus:border-[#064E3B]"
                                   />
+                                  <span className="text-[11px] text-[#6B7280] font-bold">%</span>
                                 </div>
-                              )}
-
-                              {allocationRule === 'PERCENTAGE' && (
-                                <div className="flex items-center gap-2">
-                                  <div className="flex items-center gap-1">
-                                    <input
-                                      type="number"
-                                      step="0.1"
-                                      disabled={!p.selected}
-                                      value={p.percentage}
-                                      onChange={(e) => handlePercentageChange(p.id, e.target.value)}
-                                      placeholder="0"
-                                      className="w-16 px-2 py-1 text-xs font-mono font-bold text-right text-[#111827] bg-white border border-[#94A3B8] rounded-md focus:outline-none focus:border-[#064E3B]"
-                                    />
-                                    <span className="text-xs text-[#1F2937] font-bold">%</span>
-                                  </div>
-                                  <span className="text-sm font-mono font-bold text-[#111827] min-w-[70px] text-right">
-                                    ₹ {shareRupees.toFixed(2)}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
+                                <span className="text-xs sm:text-sm font-mono font-bold text-[#111827] min-w-[55px] text-right">
+                                  ₹ {shareRupees.toFixed(2)}
+                                </span>
+                              </div>
+                            )}
 
                             {/* Remove participant button for added persons */}
                             {!p.isCurrentUser && (
                               <button
                                 type="button"
                                 onClick={() => handleRemovePerson(p.id)}
-                                className="text-neutral-400 hover:text-[#DC2626] p-1.5 rounded transition-colors cursor-pointer"
+                                className="text-neutral-400 hover:text-[#DC2626] p-1 rounded transition-colors cursor-pointer"
                                 title="Remove participant"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             )}
                           </div>
@@ -1256,7 +1215,7 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                           </div>
                         )}
 
-                        <div className="flex items-center gap-2 w-full">
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
                           <input
                             type="text"
                             autoFocus
@@ -1275,23 +1234,25 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
                             placeholder="Or enter a new person name..."
                             className="flex-1 px-3 py-1.5 text-sm font-semibold text-[#111827] border border-[#CBD5E1] rounded-lg focus:outline-none focus:border-[#064E3B] bg-white shadow-xs"
                           />
-                          <button
-                            type="button"
-                            onClick={() => handleAddPerson()}
-                            className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#064E3B] rounded-lg hover:bg-[#04392B] cursor-pointer"
-                          >
-                            Add
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setIsAddingPerson(false);
-                              setNewPersonName('');
-                            }}
-                            className="px-2.5 py-1.5 text-xs font-semibold text-[#4B5563] hover:text-[#111827] cursor-pointer"
-                          >
-                            Cancel
-                          </button>
+                          <div className="flex items-center gap-2 justify-end">
+                            <button
+                              type="button"
+                              onClick={() => handleAddPerson()}
+                              className="px-3.5 py-1.5 text-xs font-bold text-white bg-[#064E3B] rounded-lg hover:bg-[#04392B] cursor-pointer"
+                            >
+                              Add
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsAddingPerson(false);
+                                setNewPersonName('');
+                              }}
+                              className="px-2.5 py-1.5 text-xs font-semibold text-[#4B5563] hover:text-[#111827] cursor-pointer"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -1392,25 +1353,26 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
         </div>
 
         {/* Modal Footer */}
-        <div className="p-4 sm:px-6 sm:py-3.5 bg-white border-t border-[#CBD5E1] flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+        <div className="p-3 sm:px-6 sm:py-3.5 bg-white border-t border-[#CBD5E1] flex items-center justify-between gap-2 shrink-0">
           <button
             type="button"
             onClick={handleAttemptClose}
             disabled={isLoading}
-            className="w-full sm:w-auto text-sm font-bold text-[#4B5563] hover:text-[#111827] px-4 py-2.5 rounded-lg hover:bg-neutral-100 transition-colors cursor-pointer disabled:opacity-50"
+            className="text-xs sm:text-sm font-bold text-[#4B5563] hover:text-[#111827] px-2.5 sm:px-3 py-2 rounded-lg hover:bg-neutral-100 transition-colors cursor-pointer disabled:opacity-50"
           >
             Cancel
           </button>
 
-          <div className="flex items-center gap-2.5 w-full sm:w-auto">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             {!expenseToEdit && (
               <button
                 type="button"
                 onClick={() => handleSubmit(true)}
                 disabled={isLoading}
-                className="w-full sm:w-auto px-4 py-2.5 text-sm font-bold text-[#064E3B] bg-white border border-[#064E3B] hover:bg-[#F0FDF4] rounded-lg transition-colors cursor-pointer disabled:opacity-50 flex items-center justify-center gap-1.5"
+                className="px-2.5 sm:px-3.5 py-2 text-xs sm:text-sm font-bold text-[#064E3B] bg-white border border-[#CBD5E1] hover:bg-[#F0FDF4] rounded-lg transition-colors cursor-pointer disabled:opacity-50 text-center"
               >
-                Save and Add Another
+                <span className="sm:hidden">Save & New</span>
+                <span className="hidden sm:inline">Save and Add Another</span>
               </button>
             )}
 
@@ -1418,16 +1380,16 @@ export const AddNewExpenseModal: React.FC<AddNewExpenseModalProps> = ({
               type="button"
               onClick={() => handleSubmit(false)}
               disabled={isLoading}
-              className="w-full sm:w-auto px-6 py-2.5 text-sm font-bold text-white bg-[#064E3B] hover:bg-[#04392B] rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+              className="px-3.5 sm:px-6 py-2 text-xs sm:text-sm font-bold text-white bg-[#064E3B] hover:bg-[#04392B] rounded-lg transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50 text-center"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   <span>Saving...</span>
                 </>
               ) : (
                 <>
-                  <Check className="w-4.5 h-4.5" />
+                  <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   <span>{expenseToEdit ? 'Save Changes' : 'Save Expense'}</span>
                 </>
               )}
